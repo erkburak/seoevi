@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { KELIME_SEKMELERI } from "@/config/navigation";
 import { SayfaBasligi } from "@/components/app/sayfa-basligi";
+import { YukseltmeDuvari } from "@/components/app/yukseltme-duvari";
 import { AmacRozeti, Rozet } from "@/components/ui/badge";
 import { Buton } from "@/components/ui/button";
 import { VeriTablosu, type TabloKolonu, type TabloSatiri } from "@/components/ui/data-table";
@@ -12,6 +13,7 @@ import { OzetDegeri } from "@/components/ui/metric";
 import { FirsatSkoru } from "@/components/ui/score";
 import { FiltreSeridi, Sekmeler } from "@/components/ui/tabs";
 import { projeBaglami } from "@/lib/projects";
+import { abonelikDurumu, sonrakiPlan } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { kisaSayi, sayi } from "@/lib/utils";
 import type { FirsatTuru } from "@/types/database";
@@ -37,6 +39,15 @@ const FILTRELER: { deger: string; etiket: string }[] = [
   { deger: "genel", etiket: "Genel" },
 ];
 
+type KelimeAlani = {
+  id: string;
+  keyword: string;
+  search_volume: number | null;
+  difficulty: number | null;
+  intent: string | null;
+  is_tracked: boolean;
+};
+
 type FirsatSatiri = {
   id: string;
   score: number;
@@ -45,10 +56,7 @@ type FirsatSatiri = {
   target_position: number | null;
   reason: string | null;
   opportunity_type: FirsatTuru;
-  keywords:
-    | { id: string; keyword: string; search_volume: number | null; difficulty: number | null; intent: string | null }
-    | { id: string; keyword: string; search_volume: number | null; difficulty: number | null; intent: string | null }[]
-    | null;
+  keywords: KelimeAlani | KelimeAlani[] | null;
 };
 
 export default async function KelimeFirsatlariSayfasi({
@@ -56,13 +64,13 @@ export default async function KelimeFirsatlariSayfasi({
 }: {
   searchParams: Promise<{ tur?: string }>;
 }) {
-  const { proje } = await projeBaglami();
+  const { kullanici, proje } = await projeBaglami();
   const { tur = "hepsi" } = await searchParams;
   const supabase = await sunucuIstemcisi();
 
   let sorgu = supabase
     .from("keyword_opportunities")
-    .select("id, score, potential_traffic, current_position, target_position, reason, opportunity_type, keywords(id, keyword, search_volume, difficulty, intent)")
+    .select("id, score, potential_traffic, current_position, target_position, reason, opportunity_type, keywords(id, keyword, search_volume, difficulty, intent, is_tracked)")
     .eq("project_id", proje.id)
     .eq("status", "acik")
     .order("score", { ascending: false })
@@ -70,7 +78,8 @@ export default async function KelimeFirsatlariSayfasi({
 
   if (tur !== "hepsi") sorgu = sorgu.eq("opportunity_type", tur);
 
-  const { data } = await sorgu;
+  const [{ data }, { plan }] = await Promise.all([sorgu, abonelikDurumu(kullanici.id)]);
+  const hedefPlan = plan ? await sonrakiPlan(plan.id) : null;
 
   const firsatlar = ((data ?? []) as unknown as FirsatSatiri[])
     .map((f) => {
@@ -89,12 +98,25 @@ export default async function KelimeFirsatlariSayfasi({
         hedef: f.target_position,
         gerekce: f.reason,
         tur: f.opportunity_type,
+        takipte: k.is_tracked,
       };
     })
     .filter((f): f is NonNullable<typeof f> => f !== null);
 
-  const yuksek = firsatlar.filter((f) => f.skor >= 75).length;
-  const toplamTrafik = firsatlar.reduce((t, f) => t + (f.trafik ?? 0), 0);
+  /*
+   * Fırsatlar, takip edilen kelimelerle sınırlı gösterilir. Paketin
+   * dışında kalan kelimelere ait fırsatlar hesaplanmış ve saklanmış
+   * durumdadır; istemciye gönderilmez, yalnızca sayısı ve toplam kazanç
+   * tahmini yükseltme panelinde gösterilir.
+   */
+  const gorunenler = firsatlar.filter((f) => f.takipte);
+  const gizlenenler = firsatlar.filter((f) => !f.takipte);
+
+  const gizliTrafik = gizlenenler.reduce((t, f) => t + (f.trafik ?? 0), 0);
+  const gizliYuksek = gizlenenler.filter((f) => f.skor >= 75).length;
+
+  const yuksek = gorunenler.filter((f) => f.skor >= 75).length;
+  const toplamTrafik = gorunenler.reduce((t, f) => t + (f.trafik ?? 0), 0);
 
   const kolonlar: TabloKolonu[] = [
     { baslik: "Anahtar kelime", sabit: true, genislik: "24%" },
@@ -108,7 +130,7 @@ export default async function KelimeFirsatlariSayfasi({
     { baslik: "Gerekçe", siralanabilir: false, mobilGizle: true },
   ];
 
-  const satirlar: TabloSatiri[] = firsatlar.map((f) => ({
+  const satirlar: TabloSatiri[] = gorunenler.map((f) => ({
     id: f.id,
     href: `/anahtar-kelimeler/${f.keywordId}`,
     degerler: [f.keyword, f.skor, f.hacim, f.pozisyon, f.hedef, f.trafik, f.amac, TUR_ETIKET[f.tur], f.gerekce],
@@ -166,7 +188,7 @@ export default async function KelimeFirsatlariSayfasi({
       ) : (
         <>
           <div className="mb-6 grid grid-cols-2 gap-6 border-b border-line pb-6 sm:grid-cols-3">
-            <OzetDegeri etiket="Açık fırsat" deger={sayi(firsatlar.length)} />
+            <OzetDegeri etiket="Açık fırsat" deger={sayi(gorunenler.length)} />
             <OzetDegeri etiket="Yüksek öncelikli" deger={sayi(yuksek)} ipucu="Fırsat skoru 75 ve üzerindeki kelimeler." />
             <OzetDegeri
               etiket="Toplam kazanç potansiyeli"
@@ -182,6 +204,28 @@ export default async function KelimeFirsatlariSayfasi({
           />
 
           <VeriTablosu kolonlar={kolonlar} satirlar={satirlar} aramaYerTutucu="Fırsatlarda ara…" sayfaBoyutu={50} />
+
+          <YukseltmeDuvari
+            gizliSayi={gizlenenler.length}
+            baslik={`${sayi(gizlenenler.length)} fırsat daha hesaplandı`}
+            aciklama={
+              "Bu fırsatlar sitenizin gerçek sıralama verisinden hesaplandı ve hesabınızda duruyor. " +
+              "Paketiniz takip ettiğiniz kelimelerin fırsatlarını gösteriyor; yükselttiğinizde kalanlar " +
+              "ek analiz gerekmeden açılır."
+            }
+            olcumler={[
+              { etiket: "Gizli fırsat", deger: sayi(gizlenenler.length) },
+              {
+                etiket: "Tahmini aylık ek ziyaret",
+                deger: kisaSayi(gizliTrafik),
+                vurgulu: true,
+              },
+              ...(gizliYuksek > 0
+                ? [{ etiket: "Yüksek skorlu (75+)", deger: sayi(gizliYuksek), vurgulu: true }]
+                : []),
+            ]}
+            hedefPlanAdi={hedefPlan?.name ?? null}
+          />
         </>
       )}
     </>

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { aktifProjeGetir } from "@/lib/projects";
 import { firsatSkoru } from "@/lib/scoring";
-import { limitKontrol } from "@/lib/subscription";
+import { takipKelimeLimiti } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 
@@ -40,22 +40,14 @@ export async function POST(istek: Request) {
 
   const yonetici = yoneticiIstemcisi();
 
-  const { count } = await yonetici
-    .from("keywords")
-    .select("id", { count: "exact", head: true })
-    .eq("project_id", proje.id)
-    .eq("is_tracked", true);
+  // Takip limiti `anahtar_kelime` alanından gelir; aylık araştırma
+  // çalıştırma hakkıyla karıştırılmamalıdır.
+  const takip = await takipKelimeLimiti(user.id, proje.id);
 
-  const limit = await limitKontrol({
-    kullaniciId: user.id,
-    metrik: "keyword",
-    adet: 0,
-  });
-
-  if ((count ?? 0) + sonuc.data.kelimeler.length > limit.limit) {
+  if (takip.mevcut + sonuc.data.kelimeler.length > takip.limit) {
     return NextResponse.json(
       {
-        hata: `Paketinizde ${limit.limit} kelime takip edebilirsiniz. Şu anda ${count ?? 0} kelime takip ediliyor.`,
+        hata: `Paketinizde ${takip.limit} kelime takip edebilirsiniz. Şu anda ${takip.mevcut} kelime takip ediliyor.`,
         limitAsildi: true,
       },
       { status: 429 },

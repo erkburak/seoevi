@@ -115,6 +115,8 @@ export type ProjeIstatistikleri = {
   tahmini_trafik?: number;
   gorunurluk?: number;
   taranan_sayfa?: number;
+  tarama_siniri?: number;
+  tarama_sinirina_takildi?: boolean;
   urun_sayisi?: number;
   kategori_sayisi?: number;
   kritik_sorun?: number;

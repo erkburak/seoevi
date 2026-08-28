@@ -167,6 +167,34 @@ export async function ozellikVarMi(
   return Boolean(aktifMi && limitler?.[ozellik]);
 }
 
+/**
+ * Takip edilebilecek anahtar kelime sayısı.
+ *
+ * Bu limit `anahtar_kelime` alanından gelir. Aylık araştırma çalıştırma
+ * hakkı (`aylik_kelime_arastirmasi`) ile karıştırılmamalıdır: biri kaç
+ * kelimenin sürekli izlendiğini, diğeri ayda kaç kez araştırma
+ * çalıştırılabildiğini belirler.
+ */
+export async function takipKelimeLimiti(
+  kullaniciId: string,
+  projeId: string,
+): Promise<{ limit: number; mevcut: number; kalan: number }> {
+  const supabase = yoneticiIstemcisi();
+  const { limitler, aktifMi } = await abonelikDurumu(kullaniciId);
+
+  const limit =
+    aktifMi && typeof limitler?.anahtar_kelime === "number" ? limitler.anahtar_kelime : 0;
+
+  const { count } = await supabase
+    .from("keywords")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projeId)
+    .eq("is_tracked", true);
+
+  const mevcut = count ?? 0;
+  return { limit, mevcut, kalan: Math.max(0, limit - mevcut) };
+}
+
 /** Proje sayısı limitini kontrol eder. */
 export async function projeLimitiUygunMu(
   kullaniciId: string,
@@ -185,10 +213,19 @@ export async function projeLimitiUygunMu(
   return { uygun: mevcut < limit, mevcut, limit };
 }
 
-/** Yükseltme önerisi için bir sonraki planı bulur. */
+/**
+ * Yükseltme önerisi için bir sonraki planı bulur.
+ *
+ * Mevcut plan, deneme paketi gibi listelenmeyen bir paket olabilir; bu
+ * yüzden mevcut plan tüm paketler arasından aranır, öneri ise yalnızca
+ * herkese açık paketlerden seçilir.
+ */
 export async function sonrakiPlan(mevcutPlanId: string): Promise<Plan | null> {
-  const planlar = await planlariGetir();
-  const mevcut = planlar.find((p) => p.id === mevcutPlanId);
+  const [mevcut, planlar] = await Promise.all([planGetir(mevcutPlanId), planlariGetir()]);
   if (!mevcut) return null;
-  return planlar.find((p) => p.sort_order > mevcut.sort_order && !p.is_custom) ?? planlar.find((p) => p.is_custom) ?? null;
+  return (
+    planlar.find((p) => p.sort_order > mevcut.sort_order && !p.is_custom) ??
+    planlar.find((p) => p.is_custom) ??
+    null
+  );
 }

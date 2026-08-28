@@ -1,11 +1,10 @@
 import { SayfaBasligi } from "@/components/app/sayfa-basligi";
 import { KisitlaDugmesi, PaketDegistirDugmesi } from "@/components/app/yetkili-formlar";
 import { Rozet } from "@/components/ui/badge";
-import { planlariGetir } from "@/lib/plans";
+import { tumPaketler } from "@/lib/plans";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { goreliZaman, tarih } from "@/lib/utils";
 import { yetkiliGerekli } from "@/lib/yetkili";
-import type { Plan } from "@/types/database";
 
 const DURUM_ETIKET: Record<string, string> = {
   deneme: "Deneme",
@@ -36,17 +35,11 @@ export default async function YetkiliKullanicilarSayfasi() {
         .limit(200),
       supabase.from("subscriptions").select("user_id, plan_id, status, current_period_end"),
       supabase.from("projects").select("user_id").eq("is_deleted", false),
-      planlariGetir(),
+      tumPaketler(),
     ]);
 
-  // Konuşalım paketi de atanabilmeli; planlariGetir yalnızca herkese
-  // açık olanları döndürdüğü için deneme paketi ayrıca eklenir.
-  const { data: tumPlanlar } = await supabase
-    .from("plans")
-    .select("*")
-    .order("sort_order", { ascending: true });
-
-  const atanabilirPlanlar = (tumPlanlar ?? planlar) as Plan[];
+  // Yetkili, listelenmeyen deneme paketini de atayabilmeli.
+  const atanabilirPlanlar = planlar;
 
   const abonelikHaritasi = new Map(
     (abonelikler ?? []).map((a) => [a.user_id, a]),

@@ -3,6 +3,7 @@ import "server-only";
 import type { Tazelik } from "@/lib/dataforseo/cache";
 import { alanAdiOzeti, siralananKelimeler, type SiralananKelime } from "@/lib/dataforseo/labs";
 import { firsatSkoru } from "@/lib/scoring";
+import { takipKelimeLimiti } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { arasinda } from "@/lib/utils";
 import type { FirsatTuru, Proje } from "@/types/database";
@@ -74,6 +75,49 @@ export async function kelimeAnaliziYap({
 
   /* ---------------- Anahtar kelimeler ---------------- */
 
+  /*
+   * Labs yüzlerce kelime döndürür ve hepsi saklanır — satır başına ek
+   * ücret ödenmediği için bu veriyi atmak israf olur. Ancak yalnızca
+   * paketin izin verdiği kadarı TAKİBE alınır; gerisi kayıtlı kalır ve
+   * yükseltme panelinde "kaç kelime daha var" olarak gösterilir.
+   *
+   * Hangi kelimelerin takip edileceği rastgele değil, fırsat skoruna göre
+   * belirlenir: kullanıcı sınırlı hakkını en kazançlı kelimelerde kullanır.
+   */
+  const { limit: takipLimiti } = await takipKelimeLimiti(proje.user_id, proje.id);
+
+  // Kullanıcının kendi eklediği kelimeler onun açık tercihidir; analiz
+  // bunları takipten düşürmez ve kalan hak üzerinden hesap yapar.
+  const { data: elleEklenen } = await supabase
+    .from("keywords")
+    .select("keyword")
+    .eq("project_id", proje.id)
+    .eq("is_tracked", true)
+    .eq("source", "arastirma");
+
+  const korunanlar = new Set((elleEklenen ?? []).map((k) => k.keyword));
+  const kalanHak = Math.max(0, takipLimiti - korunanlar.size);
+
+  const degerSirasi = [...kelimeler]
+    .map((k) => ({
+      keyword: k.keyword,
+      skor: firsatSkoru({
+        aramaHacmi: k.arama_hacmi,
+        zorluk: k.zorluk,
+        rekabet: k.rekabet,
+        mevcutPozisyon: k.pozisyon,
+        amac: k.amac,
+        serpOzellikSayisi: 0,
+        alisverisVar: false,
+        rakipSayisi: 0,
+        alanAdiGucu: null,
+      }).skor,
+    }))
+    .filter((k) => !korunanlar.has(k.keyword))
+    .sort((a, b) => b.skor - a.skor);
+
+  const takipEdilecek = new Set(degerSirasi.slice(0, kalanHak).map((k) => k.keyword));
+
   const kelimeKayitlari = kelimeler.map((k) => ({
     project_id: proje.id,
     keyword: k.keyword,
@@ -84,8 +128,10 @@ export async function kelimeAnaliziYap({
       k.rekabet === null ? null : k.rekabet < 0.34 ? "dusuk" : k.rekabet < 0.67 ? "orta" : "yuksek",
     difficulty: k.zorluk,
     intent: k.amac,
-    is_tracked: true,
-    source: "labs",
+    is_tracked: korunanlar.has(k.keyword) || takipEdilecek.has(k.keyword),
+    // Elle eklenmiş kelimenin kaynağı korunur; aksi hâlde bir sonraki
+    // analizde kullanıcı tercihi olduğu bilgisi kaybolur.
+    source: korunanlar.has(k.keyword) ? "arastirma" : "labs",
     // Mevsimsellik analizi bu alandan beslenir.
     trend: k.trend as never,
     location_code: locationCode,

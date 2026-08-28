@@ -43,15 +43,22 @@ export const METRIK_LIMITI: Record<string, keyof PlanLimitleri> = {
 
 let onbellek: { planlar: Plan[]; zaman: number } | null = null;
 
-/** Herkese açık paketleri sıralı biçimde döndürür. */
-export async function planlariGetir(): Promise<Plan[]> {
+/**
+ * Gizli paketler dahil tüm paketler.
+ *
+ * Deneme paketi fiyat sayfasında görünmemesi için `is_public = false`
+ * işaretlidir; ancak kayıt olan her kullanıcıya bu paket atandığı için
+ * limitlerinin okunabilmesi şarttır. Sorguyu herkese açık paketlerle
+ * sınırlamak, yeni kullanıcının hiçbir hakkı yokmuş gibi görünmesine
+ * yol açar.
+ */
+export async function tumPaketler(): Promise<Plan[]> {
   if (onbellek && Date.now() - onbellek.zaman < 60_000) return onbellek.planlar;
 
   const supabase = yoneticiIstemcisi();
   const { data, error } = await supabase
     .from("plans")
     .select("*")
-    .eq("is_public", true)
     .order("sort_order", { ascending: true });
 
   if (error) {
@@ -64,9 +71,14 @@ export async function planlariGetir(): Promise<Plan[]> {
   return planlar;
 }
 
+/** Herkese açık paketleri sıralı biçimde döndürür. */
+export async function planlariGetir(): Promise<Plan[]> {
+  return (await tumPaketler()).filter((p) => p.is_public);
+}
+
+/** Kimliğine göre paket. Listelenmeyen paketleri de bulur. */
 export async function planGetir(id: string): Promise<Plan | null> {
-  const planlar = await planlariGetir();
-  return planlar.find((p) => p.id === id) ?? null;
+  return (await tumPaketler()).find((p) => p.id === id) ?? null;
 }
 
 /** Limitin sınırsız sayılacağı eşik. */

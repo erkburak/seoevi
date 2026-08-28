@@ -48,6 +48,14 @@ export type TaramaOzeti = {
   ilerleme: number;
   taranan_sayfa: number;
   toplam_sayfa: number;
+  /**
+   * Tarama sayfa sınırına takılarak mı durdu?
+   *
+   * Sağlayıcı, sitede kaç sayfa KALDIĞINI bildirmez; yalnızca taramanın
+   * neden bittiğini söyler. Bu yüzden "şu kadar sayfa daha var" denemez,
+   * yalnızca "sınırda durdu, daha fazlası var" denebilir.
+   */
+  sinira_takildi: boolean;
   onpage_skoru: number | null;
   kontroller: Record<string, number>;
   sunucu: { ip: string | null; sunucu: string | null; cms: string | null };
@@ -66,6 +74,7 @@ export type TaramaOzeti = {
 
 type HamOzet = {
   crawl_progress?: string;
+  crawl_stop_reason?: string;
   crawl_status?: { max_crawl_pages?: number; pages_in_queue?: number; pages_crawled?: number };
   domain_info?: {
     ip?: string;
@@ -97,12 +106,14 @@ export async function taramaOzeti(gorevId: string): Promise<TaramaOzeti> {
   const kuyrukta = veri?.crawl_status?.pages_in_queue ?? 0;
   const toplam = taranan + kuyrukta || veri?.crawl_status?.max_crawl_pages || 1;
   const tamamlandi = veri?.crawl_progress === "finished";
+  const siniraTakildi = veri?.crawl_stop_reason === "limit_exceeded";
 
   return {
     tamamlandi,
     ilerleme: tamamlandi ? 100 : Math.min(99, Math.round((taranan / toplam) * 100)),
     taranan_sayfa: taranan,
     toplam_sayfa: toplam,
+    sinira_takildi: siniraTakildi,
     onpage_skoru: veri?.page_metrics?.onpage_score ?? null,
     kontroller: { ...(veri?.domain_info?.checks ?? {}), ...(veri?.page_metrics?.checks ?? {}) },
     sunucu: {

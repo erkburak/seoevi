@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { KELIME_SEKMELERI } from "@/config/navigation";
 import { SayfaBasligi } from "@/components/app/sayfa-basligi";
+import { YukseltmeDuvari } from "@/components/app/yukseltme-duvari";
 import { Sparkline } from "@/components/charts";
 import { AmacRozeti } from "@/components/ui/badge";
 import { Buton } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { OzetDegeri } from "@/components/ui/metric";
 import { FirsatSkoru, PozisyonDegisimi } from "@/components/ui/score";
 import { Sekmeler } from "@/components/ui/tabs";
 import { projeBaglami } from "@/lib/projects";
+import { abonelikDurumu, sonrakiPlan } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { kisaSayi, sayi, urlYolu } from "@/lib/utils";
 import type { KelimeOzeti } from "@/types/database";
@@ -23,17 +25,36 @@ export const metadata: Metadata = {
 };
 
 export default async function AnahtarKelimelerSayfasi() {
-  const { proje } = await projeBaglami();
+  const { kullanici, proje } = await projeBaglami();
   const supabase = await sunucuIstemcisi();
 
-  const { data } = await supabase
-    .from("kelime_ozet")
-    .select("*")
-    .eq("project_id", proje.id)
-    .order("search_volume", { ascending: false, nullsFirst: false })
-    .limit(1000);
+  const [{ data }, { plan }] = await Promise.all([
+    supabase
+      .from("kelime_ozet")
+      .select("*")
+      .eq("project_id", proje.id)
+      .order("search_volume", { ascending: false, nullsFirst: false })
+      .limit(1000),
+    abonelikDurumu(kullanici.id),
+  ]);
 
-  const kelimeler = (data ?? []) as KelimeOzeti[];
+  const tumKelimeler = (data ?? []) as KelimeOzeti[];
+
+  /*
+   * Analiz, paketin izin verdiğinden çok daha fazla kelime bulur ve hepsi
+   * saklanır. Yalnızca takibe alınanlar gösterilir; gerisi istemciye hiç
+   * gönderilmez, sayısı ve toplam değeri sunucuda hesaplanıp yükseltme
+   * panelinde gösterilir.
+   */
+  const kelimeler = tumKelimeler.filter((k) => k.is_tracked);
+  const gizlenenler = tumKelimeler.filter((k) => !k.is_tracked);
+
+  const gizliHacim = gizlenenler.reduce((t, k) => t + (k.search_volume ?? 0), 0);
+  const gizliVurmaMesafesi = gizlenenler.filter(
+    (k) => k.position !== null && k.position > 10 && k.position <= 20,
+  ).length;
+
+  const hedefPlan = plan ? await sonrakiPlan(plan.id) : null;
 
   const siralanan = kelimeler.filter((k) => k.position !== null);
   const ilkOn = siralanan.filter((k) => (k.position ?? 99) <= 10).length;
@@ -134,7 +155,7 @@ export default async function AnahtarKelimelerSayfasi() {
 
       <Sekmeler ogeler={KELIME_SEKMELERI} aktif="/anahtar-kelimeler" className="mb-6" />
 
-      {kelimeler.length === 0 ? (
+      {tumKelimeler.length === 0 ? (
         <BosDurum
           ikon={Search}
           baslik="Henüz anahtar kelime bulunmuyor."
@@ -167,6 +188,30 @@ export default async function AnahtarKelimelerSayfasi() {
             satirlar={satirlar}
             aramaYerTutucu="Anahtar kelime ara…"
             sayfaBoyutu={50}
+          />
+
+          <YukseltmeDuvari
+            gizliSayi={gizlenenler.length}
+            baslik={`${sayi(gizlenenler.length)} kelime daha bulundu`}
+            aciklama={
+              `Sitenizin sıralandığı kelimeleri tamamen taradık; paketiniz ${sayi(kelimeler.length)} kelimeyi ` +
+              `takip etmenize izin veriyor. Kalanlar hesabınızda duruyor, paketinizi yükselttiğinizde ek analiz ` +
+              `gerekmeden açılır.`
+            }
+            olcumler={[
+              { etiket: "Gizli kelime", deger: sayi(gizlenenler.length) },
+              { etiket: "Aylık toplam arama", deger: kisaSayi(gizliHacim), vurgulu: true },
+              ...(gizliVurmaMesafesi > 0
+                ? [
+                    {
+                      etiket: "İlk sayfaya yakın (11-20)",
+                      deger: sayi(gizliVurmaMesafesi),
+                      vurgulu: true,
+                    },
+                  ]
+                : []),
+            ]}
+            hedefPlanAdi={hedefPlan?.name ?? null}
           />
         </>
       )}

@@ -99,7 +99,11 @@ export async function raporAnlikGorunumuUret({
   if (secili.has("genel")) {
     gorunum.genel = {
       skorlar: { ...proje.scores },
-      istatistikler: { ...proje.stats },
+      // Rapor yalnızca sayısal istatistikleri taşır; tarama sınırına
+      // takılma gibi ürün içi bayraklar müşteri belgesine girmez.
+      istatistikler: Object.fromEntries(
+        Object.entries(proje.stats ?? {}).filter(([, deger]) => typeof deger === "number"),
+      ) as Record<string, number>,
       son_analiz: proje.last_audit_at,
     };
   }

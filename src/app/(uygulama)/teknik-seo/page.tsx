@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SITE_SEKMELERI } from "@/config/navigation";
 import { AnaliziYenile } from "@/components/app/ust-cubuk";
 import { SayfaBasligi } from "@/components/app/sayfa-basligi";
+import { YukseltmeDuvari } from "@/components/app/yukseltme-duvari";
 import { DagilimSeridi } from "@/components/charts";
 import { OnemRozeti, Rozet } from "@/components/ui/badge";
 import { VeriTablosu, type TabloKolonu, type TabloSatiri } from "@/components/ui/data-table";
@@ -14,6 +15,7 @@ import { BolumBasligi } from "@/components/ui/surface";
 import { FiltreSeridi, Sekmeler } from "@/components/ui/tabs";
 import { TEKNIK_KATEGORI_ADI, type TeknikKirilim } from "@/lib/scoring";
 import { projeBaglami } from "@/lib/projects";
+import { abonelikDurumu, sonrakiPlan } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { sayi, urlYolu } from "@/lib/utils";
 import type { ProjeSkorlari, TeknikSorun } from "@/types/database";
@@ -39,7 +41,7 @@ export default async function TeknikSeoSayfasi({
 }: {
   searchParams: Promise<{ onem?: string; kategori?: string }>;
 }) {
-  const { proje } = await projeBaglami();
+  const { kullanici, proje } = await projeBaglami();
   const { onem = "hepsi", kategori = "hepsi" } = await searchParams;
   const supabase = await sunucuIstemcisi();
 
@@ -53,7 +55,7 @@ export default async function TeknikSeoSayfasi({
   if (onem !== "hepsi") sorgu = sorgu.eq("severity", onem);
   if (kategori !== "hepsi") sorgu = sorgu.eq("category", kategori);
 
-  const [{ data: sorunVerisi }, { data: tumSorunlar }, { data: gecmis }] = await Promise.all([
+  const [{ data: sorunVerisi }, { data: tumSorunlar }, { data: gecmis }, { plan }] = await Promise.all([
     sorgu,
     supabase
       .from("technical_issues")
@@ -68,7 +70,22 @@ export default async function TeknikSeoSayfasi({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    abonelikDurumu(kullanici.id),
   ]);
+
+  const hedefPlan = plan ? await sonrakiPlan(plan.id) : null;
+
+  /*
+   * Sağlayıcı, sitede kaç sayfa kaldığını bildirmez; yalnızca taramanın
+   * sayfa sınırında durup durmadığını söyler. Bu yüzden panel "şu kadar
+   * sayfa daha var" demez — taranmamış sayfa bulunduğunu ve üst paketin
+   * kaç sayfa tarayacağını söyler.
+   */
+  const istatistik = proje.stats ?? {};
+  const siniraTakildi = istatistik.tarama_sinirina_takildi === true;
+  const taramaSiniri = istatistik.tarama_siniri ?? istatistik.taranan_sayfa ?? 0;
+  const hedefTaramaSiniri =
+    typeof hedefPlan?.limits?.tarama_sayfa === "number" ? hedefPlan.limits.tarama_sayfa : null;
 
   const sorunlar = (sorunVerisi ?? []) as TeknikSorun[];
   const tumu = tumSorunlar ?? [];
@@ -232,6 +249,31 @@ export default async function TeknikSeoSayfasi({
                 />
               )}
             </div>
+
+            {siniraTakildi ? (
+              <YukseltmeDuvari
+                gizliSayi={1}
+                baslik="Taramanız sayfa sınırında durdu"
+                aciklama={
+                  `Sitenizde taranmamış sayfalar var: tarama ${sayi(taramaSiniri)} sayfada paket sınırına ` +
+                  `takıldı. Taranmayan sayfalardaki teknik sorunlar, ürün ve kategori puanları ile iç ` +
+                  `bağlantı önerileri bu listede yer almıyor.`
+                }
+                olcumler={[
+                  { etiket: "Taranan sayfa", deger: sayi(taramaSiniri) },
+                  ...(hedefTaramaSiniri
+                    ? [
+                        {
+                          etiket: `${hedefPlan!.name} paketinde`,
+                          deger: `${sayi(hedefTaramaSiniri)} sayfa`,
+                          vurgulu: true,
+                        },
+                      ]
+                    : []),
+                ]}
+                hedefPlanAdi={hedefPlan?.name ?? null}
+              />
+            ) : null}
           </section>
         </div>
       )}

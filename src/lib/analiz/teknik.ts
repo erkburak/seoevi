@@ -193,6 +193,10 @@ const SORUN_TANIMLARI: SorunTanimi[] = [
 
 export type TeknikAnalizSonucu = {
   taranan: number;
+  /** Bu taramada uygulanan sayfa sınırı. */
+  taramaSiniri: number;
+  /** Tarama, sayfa sınırına takılarak mı bitti? */
+  siniraTakildi: boolean;
   sayfaTurleri: Record<SayfaTuru, number>;
   skor: number;
   kirilim: Record<string, number>;
@@ -223,6 +227,7 @@ export async function taramaSonucunuIsle({
     .maybeSingle();
 
   const ozet = await taramaOzeti(gorevId);
+  const taramaSiniri = ayarlar?.max_crawl_pages ?? 200;
   const maksSayfa = Math.min(ayarlar?.max_crawl_pages ?? 200, ozet.taranan_sayfa || 200);
 
   // Sayfaları parça parça oku.
@@ -237,6 +242,8 @@ export async function taramaSonucunuIsle({
   if (!tumSayfalar.length) {
     return {
       taranan: 0,
+      taramaSiniri,
+      siniraTakildi: false,
       sayfaTurleri: { anasayfa: 0, urun: 0, kategori: 0, icerik: 0, diger: 0 },
       skor: 0,
       kirilim: {},
@@ -502,6 +509,8 @@ export async function taramaSonucunuIsle({
 
   return {
     taranan: tumSayfalar.length,
+    taramaSiniri,
+    siniraTakildi: ozet.sinira_takildi,
     sayfaTurleri,
     skor,
     kirilim: kirilim as unknown as Record<string, number>,

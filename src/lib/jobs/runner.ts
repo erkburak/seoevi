@@ -565,6 +565,8 @@ type TeknikSonuc = {
   skor: number;
   kirilim?: Record<string, number>;
   taranan: number;
+  taramaSiniri?: number;
+  siniraTakildi?: boolean;
   kritikSorun: number;
   toplamSorun: number;
   eticaretSkoru: number | null;
@@ -638,6 +640,11 @@ async function skorlariGuncelle(proje: Proje, params: Record<string, unknown>): 
     siralanan_kelime: kelime?.toplamKelime ?? (mevcutIstatistik.siralanan_kelime ?? 0),
     tahmini_trafik: kelime?.tahminiTrafik ?? (mevcutIstatistik.tahmini_trafik ?? 0),
     taranan_sayfa: teknik?.taranan ?? (mevcutIstatistik.taranan_sayfa ?? 0),
+    // Tarama paket sınırında mı durdu? Teknik SEO ekranındaki yükseltme
+    // paneli yalnızca bu bilgi doğruysa gösterilir.
+    tarama_siniri: teknik?.taramaSiniri ?? mevcutIstatistik.tarama_siniri,
+    tarama_sinirina_takildi:
+      teknik?.siniraTakildi ?? mevcutIstatistik.tarama_sinirina_takildi ?? false,
     kritik_sorun: teknik?.kritikSorun ?? (mevcutIstatistik.kritik_sorun ?? 0),
     urun_sayisi: teknik?.sayfaTurleri?.urun ?? (mevcutIstatistik.urun_sayisi ?? 0),
     kategori_sayisi: teknik?.sayfaTurleri?.kategori ?? (mevcutIstatistik.kategori_sayisi ?? 0),
