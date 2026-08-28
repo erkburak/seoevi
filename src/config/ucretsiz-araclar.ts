@@ -1,0 +1,24 @@
+import type { KotaAyari } from "@/lib/araclar/kota";
+
+/**
+ * Herkese açık ücretsiz araçların kota ayarları.
+ *
+ * Bu değerler sunucu eylemlerinden ayrı tutulur: "use server" dosyaları
+ * yalnızca async fonksiyon dışa aktarabilir, sabit dışa aktaramaz.
+ */
+
+/** Google Sıra Bulucu — günde 3 sorgu. */
+export const SIRA_BULUCU_KOTASI: KotaAyari = {
+  arac: "google-sira-bulucu",
+  parmakIziLimiti: 3,
+  // Paylaşımlı ağlar (mobil operatör, ofis, kafe) tek IP arkasında çok
+  // kullanıcı barındırır; IP limiti bu yüzden daha geniş tutulur.
+  ipLimiti: 12,
+};
+
+/**
+ * Aracın günlük toplam sorgu tavanı.
+ * VPN veya cihaz değiştirerek kişisel kota aşılabilir; bu tavan toplam
+ * sağlayıcı maliyetini her koşulda sınırlar.
+ */
+export const SIRA_BULUCU_GUNLUK_TAVAN = Number(process.env.SIRA_BULUCU_GUNLUK_TAVAN ?? 400);

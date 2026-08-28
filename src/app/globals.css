@@ -1,26 +1,219 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Mürekkep — ana marka rengi (koyu lacivert / siyaha yakın) */
+  --color-ink-950: #070A12;
+  --color-ink-900: #0C111D;
+  --color-ink-800: #151C2C;
+  --color-ink-700: #1F283C;
+  --color-ink-600: #303B52;
+  --color-ink-500: #4A566E;
+  --color-ink-400: #6B778F;
+  --color-ink-300: #97A1B4;
+  --color-ink-200: #C3C9D5;
+  --color-ink-100: #E2E5EB;
+  --color-ink-50: #F1F2F5;
+
+  /* Yüzeyler */
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #F7F7F8;
+  --color-surface-sunken: #F1F2F4;
+
+  /* Kenarlıklar */
+  --color-line: #E8E9EE;
+  --color-line-strong: #DADCE3;
+
+  /* Durum renkleri — sakin tonlar */
+  --color-positive: #2E7D5B;
+  --color-positive-soft: #EAF5EF;
+  --color-caution: #B4661C;
+  --color-caution-soft: #FDF3E8;
+  --color-critical: #B3392F;
+  --color-critical-soft: #FBEDEB;
+  --color-info: #2C5AA0;
+  --color-info-soft: #EDF2FA;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+
+  --shadow-subtle: 0 1px 2px rgba(12, 17, 29, 0.04), 0 1px 1px rgba(12, 17, 29, 0.03);
+  --shadow-raised: 0 4px 16px -4px rgba(12, 17, 29, 0.08), 0 1px 3px rgba(12, 17, 29, 0.04);
+  --shadow-float: 0 18px 48px -18px rgba(12, 17, 29, 0.22), 0 2px 8px rgba(12, 17, 29, 0.05);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --page: #FCFCFD;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  border-color: var(--color-line);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-ink-900);
+  color: #fff;
+}
+
+/* Odak halkası — klavye erişilebilirliği */
+:focus-visible {
+  outline: 2px solid var(--color-ink-700);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Cam yüzey — yalnızca vurgulu bölümlerde kullanılır */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.68));
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-float);
+}
+
+.hairline {
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* İnce doku — hero arka planı için */
+.grid-veil {
+  background-image:
+    linear-gradient(to right, rgba(12, 17, 29, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(12, 17, 29, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 20%, transparent 78%);
+}
+
+/* İskelet yükleme */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-rise { animation: rise 0.32s var(--ease-out-soft) both; }
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade { animation: fade 0.22s var(--ease-out-soft) both; }
+
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-drawer { animation: drawer-in 0.24s var(--ease-out-soft) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Tablo kaydırma gölgeleri */
+.table-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.table-scroll::-webkit-scrollbar { height: 8px; }
+.table-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-ink-200);
+  border-radius: 99px;
+}
+.table-scroll::-webkit-scrollbar-track { background: transparent; }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ */
+/* Etkileşim imleçleri                                                 */
+/*                                                                     */
+/* Tailwind v4 tarayıcı varsayılanına döndüğü için <button> öğeleri    */
+/* varsayılan okla gelir. Tıklanabilir her öğede el imleci gösterilir. */
+/* ------------------------------------------------------------------ */
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]),
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="range"]:not(:disabled) {
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ */
+/* İlerleme parıltısı                                                  */
+/*                                                                     */
+/* Uzun süren analizlerde yüzde değişmese bile işin sürdüğünü belli    */
+/* eden hafif bir ışık hareketi.                                       */
+/* ------------------------------------------------------------------ */
+
+@keyframes parilti-kay {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.parilti {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(12, 17, 29, 0.10),
+    transparent
+  );
+  animation: parilti-kay 1.8s var(--ease-out-soft) infinite;
 }
