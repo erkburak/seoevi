@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function BaslangicSayfasi({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string }>;
+  searchParams: Promise<{ site?: string; yonlendirildi?: string }>;
 }) {
   const kullanici = await oturumKullanicisi();
   const profil = await profilGetir(kullanici.id);
@@ -24,7 +24,7 @@ export default async function BaslangicSayfasi({
     if (aktif) redirect("/genel-bakis");
   }
 
-  const { site } = await searchParams;
+  const { site, yonlendirildi } = await searchParams;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -32,7 +32,15 @@ export default async function BaslangicSayfasi({
         <Logo boyut={26} href={null} />
       </header>
 
-      <main id="icerik" className="flex flex-1 items-center px-5 pb-16 sm:px-10">
+      <main id="icerik" className="flex flex-1 flex-col items-center justify-center px-5 pb-16 sm:px-10">
+        {yonlendirildi ? (
+          <div className="mb-6 w-full max-w-2xl rounded-[12px] border border-line bg-surface-muted/60 px-4 py-3">
+            <p className="text-[13.5px] text-ink-600">
+              <span className="font-medium text-ink-900">Panele erişmek için önce mağazanızı ekleyin.</span>{" "}
+              Kurulum iki dakika sürüyor; bittiğinde doğrudan panele geçeceksiniz.
+            </p>
+          </div>
+        ) : null}
         <BaslangicAkisi baslangicSitesi={site} />
       </main>
     </div>

@@ -15,9 +15,11 @@ import {
   TrendingUp,
   Wrench,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { baslangiciTamamla, rakipOnerisiIste } from "@/app/baslangic/actions";
+import { AnalizDurumu } from "@/components/app/analiz-durumu";
 import { Buton } from "@/components/ui/button";
 import { Uyari } from "@/components/ui/feedback";
 import { Alan, SecenekKarti } from "@/components/ui/form";
@@ -56,6 +58,8 @@ export function BaslangicAkisi({ baslangicSitesi }: { baslangicSitesi?: string }
   const [onerilerYukleniyor, setOnerilerYukleniyor] = useState(false);
   const [genelHata, setGenelHata] = useState<string | null>(null);
   const [gonderiliyor, basla] = useTransition();
+  const [analizIsi, setAnalizIsi] = useState<string | null>(null);
+  const router = useRouter();
 
   function ileri() {
     if (adim === 0) {
@@ -91,7 +95,16 @@ export function BaslangicAkisi({ baslangicSitesi }: { baslangicSitesi?: string }
         hedef: HEDEFLER.find((h) => h.deger === hedef)?.ad ?? hedef,
         rakipler: rakipler.map((r) => r.trim()).filter(Boolean),
       });
-      if (sonuc?.hata) setGenelHata(sonuc.hata);
+      if (sonuc?.hata) {
+        setGenelHata(sonuc.hata);
+        return;
+      }
+      // Proje zaten varsa beklenecek bir analiz yok.
+      if (sonuc?.hazir) {
+        router.push("/genel-bakis");
+        return;
+      }
+      if (sonuc?.isId) setAnalizIsi(sonuc.isId);
     });
   }
 
@@ -106,6 +119,37 @@ export function BaslangicAkisi({ baslangicSitesi }: { baslangicSitesi?: string }
       if (bosIndeks === -1) return mevcut;
       return mevcut.map((r, i) => (i === bosIndeks ? alanAdi : r));
     });
+  }
+
+  /*
+   * Analiz başladıysa form yerini gerçek ilerlemeye bırakır. Yüzde
+   * uydurulmaz: iş kuyruğundaki adımlardan gelir ve yüzde dolduğunda
+   * kullanıcı gerçekten panele alınır.
+   */
+  if (analizIsi) {
+    return (
+      <div className="mx-auto w-full max-w-3xl">
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-ink-900">
+          Verileriniz inceleniyor
+        </h1>
+        <p className="mt-1.5 text-[14px] leading-relaxed text-ink-500">
+          {site} için teknik tarama, sıralama ve rakip verilerini topluyoruz. Bu ekran açık
+          kaldıkça analiz ilerler; tamamlandığında panelinize geçeceksiniz.
+        </p>
+
+        <div className="mt-7">
+          <AnalizDurumu
+            isId={analizIsi}
+            bitinceGit="/genel-bakis"
+            baslik={{
+              calisiyor: "Mağazanız inceleniyor",
+              aciklama:
+                "İlk analiz birkaç dakika sürebilir. Adımlar tamamlandıkça aşağıda işaretlenir.",
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -284,8 +328,8 @@ export function BaslangicAkisi({ baslangicSitesi }: { baslangicSitesi?: string }
           </Buton>
         ) : (
           <Buton onClick={tamamla} boyut="lg" yukleniyor={gonderiliyor}>
-            Analizi Başlat
-            <ArrowRight aria-hidden />
+            {gonderiliyor ? "Kurulum yapılıyor…" : "Analizi Başlat"}
+            {gonderiliyor ? null : <ArrowRight aria-hidden />}
           </Buton>
         )}
       </div>

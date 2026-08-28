@@ -70,10 +70,12 @@ export async function projeBaglami() {
   const kullanici = await oturumKullanicisi();
   const profil = await profilGetir(kullanici.id);
 
-  if (!profil?.onboarded_at) redirect("/baslangic");
+  // Yönlendirme sunucu tarafında olduğu için kullanıcı panel ekranını hiç
+  // görmez; nereden geldiğini bildirmek hedef sayfaya bırakılır.
+  if (!profil?.onboarded_at) redirect("/baslangic?yonlendirildi=1");
 
   const { aktif, tumu } = await aktifProjeGetir(kullanici.id);
-  if (!aktif) redirect("/projeler/yeni");
+  if (!aktif) redirect("/projeler/yeni?yonlendirildi=1");
 
   return { kullanici, profil, proje: aktif, projeler: tumu };
 }

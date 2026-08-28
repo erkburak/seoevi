@@ -31,7 +31,25 @@ function sureMetni(saniye: number): string {
  * Analiz ilerlemesini gösterir ve arka plandaki işi yoklayarak ilerletir.
  * Kullanıcı sayfada beklerken adımlar tek tek tamamlanır.
  */
-export function AnalizDurumu({ isId, ilkDurum }: { isId: string; ilkDurum?: Durum }) {
+export function AnalizDurumu({
+  isId,
+  ilkDurum,
+  bitinceGit,
+  baslik,
+}: {
+  isId: string;
+  ilkDurum?: Durum;
+  /**
+   * İş tamamlandığında gidilecek adres.
+   *
+   * Kurulum akışında kullanılır: kullanıcı yüzde dolana kadar bekler ve
+   * analiz gerçekten bittiğinde panele alınır. Verilmezse bileşen yalnızca
+   * sayfayı tazeler ve yerinde kalır.
+   */
+  bitinceGit?: string;
+  /** Üstteki başlık metni; kurulumda farklı bir dil kullanılır. */
+  baslik?: { calisiyor: string; aciklama: string };
+}) {
   const router = useRouter();
   const [durum, setDurum] = useState<Durum>(
     ilkDurum ?? { durum: "bekliyor", ilerleme: 0, adimlar: [], hata: null, sira: 0, gecenSaniye: 0 },
@@ -55,6 +73,10 @@ export function AnalizDurumu({ isId, ilkDurum }: { isId: string; ilkDurum?: Duru
         // İş bittiğinde — başarılı ya da değil — sunucu bileşenleri tazelenir.
         // Aksi hâlde sayfadaki diğer bölümler işi hâlâ "devam ediyor" gösterir.
         if (veri.durum === "tamamlandi" || veri.durum === "hatali" || veri.durum === "iptal") {
+          if (bitinceGit && veri.durum === "tamamlandi") {
+            router.push(bitinceGit);
+            return;
+          }
           router.refresh();
         }
       } catch {
@@ -69,12 +91,23 @@ export function AnalizDurumu({ isId, ilkDurum }: { isId: string; ilkDurum?: Duru
       iptal = true;
       clearInterval(zamanlayici);
     };
-  }, [isId, durum.durum, router]);
+  }, [isId, durum.durum, router, bitinceGit]);
 
   if (kapatildi) return null;
 
   const bitti = durum.durum === "tamamlandi";
   const hatali = durum.durum === "hatali";
+
+  if (bitti && bitinceGit) {
+    return (
+      <div className="mb-6 rounded-[12px] border border-positive/20 bg-positive-soft px-4 py-3.5">
+        <p className="text-[13.5px] text-ink-700">
+          <span className="font-medium text-ink-900">Analiz tamamlandı.</span> Panelinize
+          yönlendiriliyorsunuz…
+        </p>
+      </div>
+    );
+  }
 
   if (bitti) {
     return (
@@ -96,6 +129,16 @@ export function AnalizDurumu({ isId, ilkDurum }: { isId: string; ilkDurum?: Duru
         <p className="mt-1 text-[13px] leading-relaxed text-ink-600">
           {durum.hata ?? "Verileri alırken geçici bir sorun oluştu. Birkaç dakika sonra tekrar deneyebilirsiniz."}
         </p>
+
+        {/* Kurulum akışında kullanıcı bu ekranda mahsur kalmamalı: projesi
+            oluşmuş durumda, analizi panelden tekrar başlatabilir. */}
+        {bitinceGit ? (
+          <div className="mt-3">
+            <Buton gorunum="ikincil" boyut="sm" onClick={() => router.push(bitinceGit)}>
+              Panele git
+            </Buton>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -109,7 +152,9 @@ export function AnalizDurumu({ isId, ilkDurum }: { isId: string; ilkDurum?: Duru
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[14px] font-medium text-ink-900">
-                {kuyrukta ? "Analiz sıraya alındı" : "Analiz hazırlanıyor"}
+                {kuyrukta
+                  ? "Analiz sıraya alındı"
+                  : (baslik?.calisiyor ?? "Analiz hazırlanıyor")}
               </p>
               {kuyrukta ? (
                 <span className="rounded-full bg-ink-900 px-2 py-0.5 text-[11px] font-medium text-white">
@@ -120,7 +165,8 @@ export function AnalizDurumu({ isId, ilkDurum }: { isId: string; ilkDurum?: Duru
             <p className="mt-0.5 text-[13px] text-ink-500">
               {kuyrukta
                 ? "Önünüzdeki analizler tamamlanınca sizinki otomatik başlayacak."
-                : "Web sitenizin SEO verilerini topluyoruz. Bu ekranı kapatabilirsiniz, işlem arka planda sürer."}
+                : (baslik?.aciklama ??
+                  "Web sitenizin SEO verilerini topluyoruz. Bu ekranı kapatabilirsiniz, işlem arka planda sürer.")}
             </p>
           </div>
           <div className="text-right">

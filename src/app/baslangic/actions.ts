@@ -24,7 +24,13 @@ const Sema = z.object({
   rakipler: z.array(z.string()).max(3).default([]),
 });
 
-export type BaslangicSonucu = { hata?: string };
+export type BaslangicSonucu = {
+  hata?: string;
+  /** Başlatılan analiz işi — istemci ilerlemeyi bu kimlikle izler. */
+  isId?: string;
+  /** Proje zaten vardı; ilerleme göstermeden panele geçilir. */
+  hazir?: boolean;
+};
 
 /**
  * Kurulumu tamamlar: projeyi oluşturur, rakipleri kaydeder ve
@@ -54,16 +60,18 @@ export async function baslangiciTamamla(veri: {
   const adres = alanAdiNormalize(sonuc.data.site);
   if (!adres.gecerli) return { hata: adres.hata };
 
-  const limit = await projeLimitiUygunMu(user.id);
-  if (!limit.uygun) {
-    return {
-      hata: `Paketinizde ${limit.limit} proje hakkı var. Yeni proje eklemek için paketinizi yükseltebilir veya bizimle iletişime geçebilirsiniz.`,
-    };
-  }
-
   const yonetici = yoneticiIstemcisi();
 
-  // Aynı alan adı daha önce eklenmiş mi?
+  /*
+   * Aynı alan adı zaten eklenmiş mi?
+   *
+   * Bu kontrol limit kontrolünden ÖNCE gelmek zorunda. Aksi hâlde
+   * kullanıcı aynı siteyi ikinci kez gönderdiğinde (yönlendirme yarıda
+   * kalmış, çift tıklamış ya da sayfayı yenilemiş olabilir) mevcut
+   * projesine götürülmek yerine "paket hakkınız doldu" hatası alır.
+   * Deneme paketi tek proje verdiği için bu, her yeni kullanıcıyı
+   * kurulumun ortasında kilitler.
+   */
   const { data: mevcut } = await yonetici
     .from("projects")
     .select("id")
@@ -75,7 +83,14 @@ export async function baslangiciTamamla(veri: {
   if (mevcut) {
     await profiliTamamla(user.id);
     await projeyiSec(mevcut.id);
-    redirect("/genel-bakis");
+    return { hazir: true };
+  }
+
+  const limit = await projeLimitiUygunMu(user.id);
+  if (!limit.uygun) {
+    return {
+      hata: `Paketinizde ${limit.limit} proje hakkı var. Yeni proje eklemek için paketinizi yükseltebilir veya bizimle iletişime geçebilirsiniz.`,
+    };
   }
 
   const konum = await ulkeKonumu("TR");
@@ -143,7 +158,9 @@ export async function baslangiciTamamla(veri: {
     projeId: proje.id,
   });
 
-  redirect(`/genel-bakis?analiz=${is.id}`);
+  // Yönlendirme istemciye bırakılır: kullanıcı analizin gerçek ilerlemesini
+  // kurulum ekranında izler ve iş bittiğinde panele geçer.
+  return { isId: is.id };
 }
 
 async function profiliTamamla(kullaniciId: string): Promise<void> {

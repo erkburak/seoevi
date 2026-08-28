@@ -61,15 +61,11 @@ export async function projeOlustur(_onceki: ProjeSonucu, veri: FormData): Promis
   const adres = alanAdiNormalize(sonuc.data.site);
   if (!adres.gecerli) return { hata: adres.hata };
 
-  const limit = await projeLimitiUygunMu(user.id);
-  if (!limit.uygun) {
-    return {
-      hata: `Paketinizde ${limit.limit} proje hakkı bulunuyor ve ${limit.mevcut} tanesini kullanıyorsunuz. Yeni proje eklemek için paketinizi yükseltebilirsiniz.`,
-    };
-  }
-
   const yonetici = yoneticiIstemcisi();
 
+  // Zaten eklenmiş bir siteyi tekrar göndermek yeni proje açmaz; bu yüzden
+  // limit kontrolünden önce bakılır, aksi hâlde kullanıcı kendi mevcut
+  // projesi yüzünden limit hatası alır.
   const { data: mevcut } = await yonetici
     .from("projects")
     .select("id, is_deleted")
@@ -81,6 +77,13 @@ export async function projeOlustur(_onceki: ProjeSonucu, veri: FormData): Promis
   if (mevcut) {
     await projeyiSec(mevcut.id);
     redirect("/genel-bakis");
+  }
+
+  const limit = await projeLimitiUygunMu(user.id);
+  if (!limit.uygun) {
+    return {
+      hata: `Paketinizde ${limit.limit} proje hakkı bulunuyor ve ${limit.mevcut} tanesini kullanıyorsunuz. Yeni proje eklemek için paketinizi yükseltebilirsiniz.`,
+    };
   }
 
   const konum = await ulkeKonumu("TR");
