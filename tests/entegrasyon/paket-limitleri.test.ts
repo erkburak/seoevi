@@ -39,6 +39,38 @@ describe("kayıtta atanan paket", () => {
   });
 });
 
+describe("aksiyon merkezi", () => {
+  it("üretilen aksiyonlar gerçekten kaydedilir", async () => {
+    /*
+     * Yaşanan arıza: `(project_id, dedupe_key)` üzerinde benzersizlik
+     * kısıtı yoktu ve ekle-veya-güncelle tamamen başarısız oluyordu.
+     * Ayrıca toplu yazımda bazı satırlarda `source_urls` bulunmadığı için
+     * NOT NULL ihlali oluşuyordu. İkisi de yalnızca sunucu günlüğüne
+     * düştüğü için Aksiyon Merkezi sessizce boş kalıyordu.
+     */
+    const { aksiyonlariUret } = await import("@/lib/analiz/aksiyon");
+
+    const { data: proje } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("is_deleted", false)
+      .limit(1)
+      .maybeSingle();
+
+    if (!proje) return;
+
+    const sonuc = await aksiyonlariUret(proje);
+    if (sonuc.olusturulan === 0) return;
+
+    const { count } = await supabase
+      .from("seo_actions")
+      .select("*", { count: "exact", head: true })
+      .eq("project_id", proje.id);
+
+    expect(count, "aksiyonlar üretildi ama kaydedilemedi").toBe(sonuc.olusturulan);
+  }, 120_000);
+});
+
 describe("takip kelimesi limiti", () => {
   it("aylık araştırma hakkını değil anahtar_kelime alanını kullanır", async () => {
     /*

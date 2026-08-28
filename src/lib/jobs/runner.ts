@@ -14,7 +14,7 @@ import { taramaBaslat, taramaOzeti } from "@/lib/dataforseo/onpage";
 import { IS_ADIMLARI, type IsTuru } from "@/lib/jobs/types";
 import { genelSeoSkoru } from "@/lib/scoring";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
-import { kullanimArtir, ozellikVarMi } from "@/lib/subscription";
+import { abonelikDurumu, kullanimArtir, kullanimAzalt, ozellikVarMi } from "@/lib/subscription";
 import type { AnalizIsi, IsAdimi, Proje, ProjeSkorlari } from "@/types/database";
 
 /** Bir çağrıda harcanabilecek azami süre (sunucusuz ortam sınırı için). */
@@ -275,6 +275,15 @@ export async function isiIlerlet(isId: string): Promise<IlerletmeSonucu> {
       completed_at: new Date().toISOString(),
     });
 
+    /*
+     * Analiz sonuçsuz bittiyse tarama hakkı iade edilir. Kullanıcı hiçbir
+     * çıktı almadan aylık hakkını kaybetmemeli — deneme paketinde bu, tek
+     * bir başarısızlığın tüm ayı yakması demekti.
+     */
+    if (params.tarama_sayildi) {
+      await kullanimAzalt({ kullaniciId: is.user_id, metrik: "site_taramasi" });
+    }
+
     await bildirimEkle({
       kullaniciId: is.user_id,
       projeId: is.project_id,
@@ -327,23 +336,60 @@ async function adimiCalistir({
   switch (adim) {
     /* --- 0: Tarama görevini başlat --- */
     case 0: {
-      const { data: ayarlar } = await supabase
-        .from("project_settings")
-        .select("max_crawl_pages")
-        .eq("project_id", proje.id)
-        .maybeSingle();
+      /*
+       * Bu iş için tarama zaten başlatılmışsa yenisi açılmaz.
+       *
+       * Adım 0 yeniden çalışabilir (kayıt sırasında bir aksama, yeniden
+       * deneme). Her seferinde yeni görev açmak hem sağlayıcıya ikinci kez
+       * ödeme yapmak hem de kullanıcının hakkını ikinci kez düşürmek
+       * demektir; üstelik ilk taramanın sonucu boşa gider.
+       */
+      const mevcutGorev = String(params.gorev_id ?? is.provider_task_id ?? "");
+      if (mevcutGorev) {
+        return {
+          adimlar: adimlariGuncelle(adimlar, 0, "isleniyor"),
+          params: { ...params, gorev_id: mevcutGorev, tarama_sayildi: true },
+          ilerleme: 8,
+          sonrakiAdim: 1,
+          bitti: false,
+          beklemede: false,
+        };
+      }
 
-      const gorevId = await taramaBaslat({
-        url: proje.url,
-        maksSayfa: ayarlar?.max_crawl_pages ?? 200,
-      });
+      const [{ data: ayarlar }, { limitler }] = await Promise.all([
+        supabase
+          .from("project_settings")
+          .select("max_crawl_pages")
+          .eq("project_id", proje.id)
+          .maybeSingle(),
+        abonelikDurumu(is.user_id),
+      ]);
+
+      /*
+       * Proje ayarındaki sayfa sayısı pakette izin verilenle sınırlanır.
+       * Ayarın varsayılanı paket limitinden yüksek olabilir; kenetlenmezse
+       * kullanıcı paketinin üstünde tarama yaptırır ve maliyeti biz öderiz.
+       */
+      const planSiniri =
+        typeof limitler?.tarama_sayfa === "number" ? limitler.tarama_sayfa : 200;
+      const maksSayfa = Math.min(ayarlar?.max_crawl_pages ?? planSiniri, planSiniri);
+
+      const gorevId = await taramaBaslat({ url: proje.url, maksSayfa });
 
       await supabase.from("audit_jobs").update({ provider_task_id: gorevId }).eq("id", is.id);
-      await kullanimArtir({ kullaniciId: is.user_id, metrik: "site_taramasi" });
+
+      /*
+       * Hak yalnızca bir kez düşülür. Adım 0 yeniden çalışırsa (yeniden
+       * deneme) sayaç ikinci kez artmamalı; aksi hâlde kullanıcı tek bir
+       * analiz için birden çok hak öder.
+       */
+      if (!params.tarama_sayildi) {
+        await kullanimArtir({ kullaniciId: is.user_id, metrik: "site_taramasi" });
+      }
 
       return {
         adimlar: adimlariGuncelle(adimlar, 0, "isleniyor"),
-        params: { ...params, gorev_id: gorevId },
+        params: { ...params, gorev_id: gorevId, tarama_sayildi: true },
         ilerleme: 8,
         sonrakiAdim: 1,
         bitti: false,

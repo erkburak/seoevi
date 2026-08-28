@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, Search, X, RefreshCw } from "lucide-react";
+import { Bell, Menu, Search, TriangleAlert, X, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -127,11 +127,13 @@ export function UstCubuk({
 export function AnaliziYenile({ projeId, boyut = "sm" }: { projeId: string; boyut?: "sm" | "md" }) {
   const [calisiyor, setCalisiyor] = useState(false);
   const [hata, setHata] = useState<string | null>(null);
+  const [limitAsildi, setLimitAsildi] = useState(false);
   const router = useRouter();
 
   async function baslat() {
     setCalisiyor(true);
     setHata(null);
+    setLimitAsildi(false);
 
     try {
       const yanit = await fetch("/api/analiz/basla", {
@@ -143,6 +145,7 @@ export function AnaliziYenile({ projeId, boyut = "sm" }: { projeId: string; boyu
 
       if (!yanit.ok) {
         setHata(veri.hata ?? "Analiz başlatılamadı.");
+        setLimitAsildi(Boolean(veri.limitAsildi));
         setCalisiyor(false);
         return;
       }
@@ -163,9 +166,37 @@ export function AnaliziYenile({ projeId, boyut = "sm" }: { projeId: string; boyu
         Analizi Yenile
       </Buton>
       {hata ? (
-        <p className="absolute right-0 top-[calc(100%+6px)] w-64 rounded-[10px] border border-critical/20 bg-critical-soft px-3 py-2 text-[12px] text-critical shadow-raised">
-          {hata}
-        </p>
+        /*
+         * Limit uyarısı bir kenar balonu değil, karar gerektiren bir
+         * bildirimdir: kullanıcının ne yapabileceğini de göstermesi
+         * gerekir. Bu yüzden okunur genişlikte, kapatılabilir ve
+         * yükseltme bağlantısı taşıyan bir kutu olarak çizilir.
+         */
+        <div
+          role="alert"
+          className="animate-fade absolute right-0 top-[calc(100%+8px)] z-50 w-[min(22rem,calc(100vw-2rem))] rounded-[12px] border border-line bg-white p-4 text-left shadow-float"
+        >
+          <div className="flex items-start gap-2.5">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-caution" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-medium text-ink-900">
+                {limitAsildi ? "Aylık tarama hakkınız doldu" : "Analiz başlatılamadı"}
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-ink-600">{hata}</p>
+
+              <div className="mt-3 flex items-center gap-2">
+                {limitAsildi ? (
+                  <Buton asChild boyut="sm">
+                    <Link href="/fiyatlandirma">Paketleri gör</Link>
+                  </Buton>
+                ) : null}
+                <Buton gorunum="sessiz" boyut="sm" onClick={() => setHata(null)}>
+                  Kapat
+                </Buton>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

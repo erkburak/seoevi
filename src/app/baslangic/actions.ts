@@ -165,10 +165,28 @@ export async function baslangiciTamamla(veri: {
 
 async function profiliTamamla(kullaniciId: string): Promise<void> {
   const yonetici = yoneticiIstemcisi();
-  await yonetici
-    .from("profiles")
-    .update({ onboarded_at: new Date().toISOString(), onboarding_step: 4 })
-    .eq("id", kullaniciId);
+
+  /*
+   * Güncelleme değil ekleme-veya-güncelleme kullanılır: profil satırı
+   * eksikse UPDATE hiçbir satırla eşleşmez, hata da vermez ve kullanıcı
+   * kurulumu tamamlamış görünmediği için kurulum ekranına sonsuza kadar
+   * geri atılır.
+   */
+  const { error } = await yonetici.from("profiles").upsert(
+    {
+      id: kullaniciId,
+      onboarded_at: new Date().toISOString(),
+      onboarding_step: 4,
+    },
+    { onConflict: "id" },
+  );
+
+  if (error) {
+    console.error("[baslangic] profil tamamlanamadı", {
+      kullaniciId,
+      mesaj: error.message,
+    });
+  }
 }
 
 async function projeyiSec(projeId: string): Promise<void> {

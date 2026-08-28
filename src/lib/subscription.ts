@@ -156,6 +156,34 @@ export async function kullanimArtir({
 }
 
 /**
+ * Kullanım sayacını geri alır.
+ *
+ * Site taraması hakkı, tarama sağlayıcıya gönderildiği anda düşülür;
+ * maliyet o anda doğar. Analiz sonradan başarısız olursa kullanıcı hiçbir
+ * sonuç almadan hakkını kaybetmemelidir. Sayaç sıfırın altına inmez.
+ */
+export async function kullanimAzalt({
+  kullaniciId,
+  metrik,
+  adet = 1,
+}: {
+  kullaniciId: string;
+  metrik: string;
+  adet?: number;
+}): Promise<void> {
+  const supabase = yoneticiIstemcisi();
+  const { error } = await supabase.rpc("decrement_usage", {
+    p_user_id: kullaniciId,
+    p_metric: metrik,
+    p_amount: adet,
+  });
+
+  if (error) {
+    console.error("[kullanim] sayaç geri alınamadı", { metrik, mesaj: error.message });
+  }
+}
+
+/**
  * Bir özelliğin plana dahil olup olmadığını kontrol eder.
  * Örnek: özellikVarMi(kullaniciId, "merchant")
  */

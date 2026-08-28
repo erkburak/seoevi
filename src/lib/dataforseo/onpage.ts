@@ -1,7 +1,7 @@
 import "server-only";
 
 import { onbellekli, type Tazelik } from "./cache";
-import { dfsIstek, dfsTekSonuc, yenidenDene } from "./client";
+import { DataForSeoHatasi, dfsIstek, dfsTekSonuc, yenidenDene } from "./client";
 
 /* ------------------------------------------------------------------ */
 /* Tarama görevi                                                       */
@@ -100,7 +100,41 @@ type HamOzet = {
 
 /** Tarama durumunu ve site geneli metrikleri okur. */
 export async function taramaOzeti(gorevId: string): Promise<TaramaOzeti> {
-  const veri = await dfsTekSonuc<HamOzet>(`/on_page/summary/${gorevId}`, undefined, "GET");
+  let veri: HamOzet | null = null;
+
+  try {
+    veri = await dfsTekSonuc<HamOzet>(`/on_page/summary/${gorevId}`, undefined, "GET");
+  } catch (hata) {
+    /*
+     * Görev henüz kuyrukta ya da işleniyorsa sağlayıcı 406xx döndürür.
+     * Bu bir arıza değil; "daha bitmedi" demektir. Hata olarak yukarı
+     * taşınırsa iş, tarama daha başlamadan başarısız işaretlenir.
+     */
+    if (hata instanceof DataForSeoHatasi && hata.hazirDegil) {
+      return {
+        tamamlandi: false,
+        ilerleme: 0,
+        taranan_sayfa: 0,
+        toplam_sayfa: 0,
+        sinira_takildi: false,
+        onpage_skoru: null,
+        kontroller: {},
+        sunucu: { ip: null, sunucu: null, cms: null },
+        sayfa_metrikleri: {
+          kirik_link: 0,
+          kirik_kaynak: 0,
+          duplicate_title: 0,
+          duplicate_description: 0,
+          duplicate_content: 0,
+          ic_link: 0,
+          dis_link: 0,
+          yonlendirme: 0,
+          indekslenemez: 0,
+        },
+      };
+    }
+    throw hata;
+  }
 
   const taranan = veri?.crawl_status?.pages_crawled ?? 0;
   const kuyrukta = veri?.crawl_status?.pages_in_queue ?? 0;

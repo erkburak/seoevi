@@ -63,14 +63,34 @@ export class DataForSeoHatasi extends Error {
   readonly kod: number;
   readonly kullaniciMesaji: string;
   readonly kalici: boolean;
+  /**
+   * Görev henüz hazır değil (kuyrukta ya da işleniyor).
+   *
+   * Bu bir arıza değil, kuyruklu görevin normal yaşam döngüsüdür; çağıran
+   * taraf beklemeye devam etmelidir.
+   */
+  readonly hazirDegil: boolean;
 
   constructor(kod: number, teknikMesaj: string) {
     super(`DataForSEO ${kod}: ${teknikMesaj}`);
     this.name = "DataForSeoHatasi";
     this.kod = kod;
     this.kalici = KALICI_HATALAR.has(kod);
+    this.hazirDegil = gorevHazirDegilMi(kod);
     this.kullaniciMesaji = kullaniciMesajiUret(kod);
   }
+}
+
+/**
+ * Görevin henüz sonuçlanmadığını bildiren kodlar.
+ *
+ * 40601 "Task Handed", 40602 "Task In Queue", 40603 "Task In Progress".
+ * Sağlayıcı bunları 40000 üstü döndürdüğü için hata sanılırlar; oysa
+ * kuyruklu bir görevin beklenen ara durumlarıdır. Hata sayılırlarsa
+ * tarama daha başlamadan "başarısız" işaretlenir.
+ */
+export function gorevHazirDegilMi(kod: number): boolean {
+  return kod >= 40600 && kod <= 40699;
 }
 
 /**

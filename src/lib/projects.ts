@@ -27,6 +27,48 @@ export async function profilGetir(kullaniciId: string): Promise<Profil | null> {
   return (data ?? null) as Profil | null;
 }
 
+/**
+ * Profili döndürür; yoksa oluşturur.
+ *
+ * Profil satırını normalde kayıt tetikleyicisi açar. Satır herhangi bir
+ * nedenle eksik kalırsa (tetikleyici hatası, elle silme, yarış durumu)
+ * kullanıcı kurulum ekranına sonsuza kadar geri atılır ve hiçbir hata
+ * görmez: kurulumu tamamlayan güncelleme eşleşecek satır bulamadığı için
+ * sessizce boşa düşer. Bu yüzden eksik profil burada onarılır.
+ */
+export async function profiliSagla(kullanici: {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): Promise<Profil | null> {
+  const mevcut = await profilGetir(kullanici.id);
+  if (mevcut) return mevcut;
+
+  const üstVeri = kullanici.user_metadata ?? {};
+  const yonetici = yoneticiIstemcisi();
+
+  const { error } = await yonetici.from("profiles").upsert(
+    {
+      id: kullanici.id,
+      email: kullanici.email ?? null,
+      full_name: (üstVeri.full_name as string) ?? (üstVeri.name as string) ?? null,
+      avatar_url: (üstVeri.avatar_url as string) ?? null,
+    },
+    { onConflict: "id" },
+  );
+
+  if (error) {
+    console.error("[profil] eksik profil oluşturulamadı", {
+      kullaniciId: kullanici.id,
+      mesaj: error.message,
+    });
+    return null;
+  }
+
+  console.warn("[profil] eksik profil onarıldı", { kullaniciId: kullanici.id });
+  return profilGetir(kullanici.id);
+}
+
 /** Kullanıcının silinmemiş projeleri. */
 export async function projeleriGetir(kullaniciId: string): Promise<Proje[]> {
   const supabase = await sunucuIstemcisi();

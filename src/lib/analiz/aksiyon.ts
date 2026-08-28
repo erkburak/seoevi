@@ -423,10 +423,24 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
 
   void yuksekPotansiyelSayisi;
 
-  for (let i = 0; i < aksiyonlar.length; i += 200) {
+  /*
+   * Toplu ekle-veya-güncelle işleminde tüm satırların aynı alan kümesini
+   * taşıması gerekir: bir alan yalnızca bazı satırlarda varsa, diğerleri
+   * için sütun varsayılanı DEĞİL açık NULL yazılır ve NOT NULL kısıtı
+   * ihlal edilir. Bu yüzden varsayılanlar burada tamamlanır.
+   */
+  const kayitlar = aksiyonlar.map((a) => ({
+    source_urls: [] as never,
+    data: {} as never,
+    affected_count: 1,
+    status: "bekliyor",
+    ...a,
+  }));
+
+  for (let i = 0; i < kayitlar.length; i += 200) {
     const { error } = await supabase
       .from("seo_actions")
-      .upsert(aksiyonlar.slice(i, i + 200) as never, { onConflict: "project_id,dedupe_key" });
+      .upsert(kayitlar.slice(i, i + 200) as never, { onConflict: "project_id,dedupe_key" });
     if (error) {
       console.error("[aksiyon] kayıt hatası", { mesaj: error.message });
     }
