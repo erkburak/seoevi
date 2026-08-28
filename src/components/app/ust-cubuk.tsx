@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, Search, TriangleAlert, X, RefreshCw } from "lucide-react";
+import { Bell, Menu, RefreshCw, Search, TriangleAlert, Volume2, VolumeX, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Logo } from "@/components/brand/logo";
 import { KenarCubuguIcerigi } from "@/components/app/kenar-cubugu";
 import { Buton } from "@/components/ui/button";
+import { bildirimSesiCal, sesAcikMi, sesTercihiniDegistir } from "@/lib/bildirim-sesi";
 import { cn, goreliZaman } from "@/lib/utils";
 import type { Bildirim, Proje } from "@/types/database";
 
@@ -215,8 +216,28 @@ const ONEM_RENGI: Record<string, string> = {
 
 function BildirimMenusu({ bildirimler, okunmamis }: { bildirimler: Bildirim[]; okunmamis: number }) {
   const [acik, setAcik] = useState(false);
+  const [sesli, setSesli] = useState(true);
   const kutu = useRef<HTMLDivElement>(null);
+  const oncekiOkunmamis = useRef<number | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setSesli(sesAcikMi());
+  }, []);
+
+  /*
+   * Okunmamış sayısı arttığında kısa bir ton çalınır.
+   *
+   * İlk yüklemede çalınmaz: sayfayı açan kullanıcıya birikmiş
+   * bildirimler için ses vermek rahatsız edicidir. Bu yüzden ilk değer
+   * yalnızca kıyas noktası olarak saklanır.
+   */
+  useEffect(() => {
+    if (oncekiOkunmamis.current !== null && okunmamis > oncekiOkunmamis.current) {
+      bildirimSesiCal();
+    }
+    oncekiOkunmamis.current = okunmamis;
+  }, [okunmamis]);
 
   useEffect(() => {
     function disariTiklama(e: MouseEvent) {
@@ -229,6 +250,14 @@ function BildirimMenusu({ bildirimler, okunmamis }: { bildirimler: Bildirim[]; o
   async function tumunuOkunduIsaretle() {
     await fetch("/api/bildirim/okundu", { method: "POST" });
     router.refresh();
+  }
+
+  function sesiDegistir() {
+    const yeni = !sesli;
+    setSesli(yeni);
+    sesTercihiniDegistir(yeni);
+    // Açarken tek ton çalmak, sesin duyulduğunu doğrular.
+    if (yeni) bildirimSesiCal();
   }
 
   return (
@@ -249,15 +278,30 @@ function BildirimMenusu({ bildirimler, okunmamis }: { bildirimler: Bildirim[]; o
         <div className="animate-fade absolute right-0 top-[calc(100%+8px)] z-50 w-[340px] overflow-hidden rounded-[12px] border border-line bg-white shadow-float">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <h2 className="text-[13px] font-semibold text-ink-900">Bildirimler</h2>
-            {okunmamis > 0 ? (
+            <div className="flex items-center gap-3">
+              {okunmamis > 0 ? (
+                <button
+                  type="button"
+                  onClick={tumunuOkunduIsaretle}
+                  className="text-[12px] text-ink-400 transition-colors hover:text-ink-900"
+                >
+                  Tümünü okundu işaretle
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={tumunuOkunduIsaretle}
-                className="text-[12px] text-ink-400 transition-colors hover:text-ink-900"
+                onClick={sesiDegistir}
+                aria-label={sesli ? "Bildirim sesini kapat" : "Bildirim sesini aç"}
+                title={sesli ? "Bildirim sesi açık" : "Bildirim sesi kapalı"}
+                className="rounded-[6px] p-1 text-ink-400 transition-colors hover:bg-ink-50 hover:text-ink-900"
               >
-                Tümünü okundu işaretle
+                {sesli ? (
+                  <Volume2 className="size-3.5" aria-hidden />
+                ) : (
+                  <VolumeX className="size-3.5" aria-hidden />
+                )}
               </button>
-            ) : null}
+            </div>
           </div>
 
           {bildirimler.length === 0 ? (

@@ -65,7 +65,7 @@ export default async function HesabimSayfasi({
         <section className="max-w-lg">
           <BolumBasligi baslik="Profil bilgileri" aciklama="Panelde ve raporlarda görünen bilgiler." />
           <div className="mt-5">
-            <ProfilFormu profil={profil} eposta={kullanici.email ?? ""} />
+            {profil ? <ProfilFormu profil={profil} eposta={kullanici.email ?? ""} /> : null}
           </div>
         </section>
       ) : bolum === "guvenlik" ? (

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 /**
  * Öneri durumunu günceller.
@@ -29,6 +30,12 @@ export async function oneriDurumuGuncelle(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const { error } = await supabase
     .from("link_suggestions")

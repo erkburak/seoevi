@@ -38,6 +38,22 @@ function kelimeler(metin: string): string[] {
 }
 
 /** Aynı başlığın küçük varyasyonlarını tek sayar. */
+/**
+ * Kendini tekrar eden başlıkları sadeleştirir.
+ *
+ * Bazı temalarda aynı metin hem görünen hem ekran okuyucu etiketinde
+ * bulunur ve ayrıştırıcı bunları yan yana getirir: "DESTEK DESTEK".
+ */
+export function tekrariSadelestir(metin: string): string {
+  const temiz = metin.trim().replace(/\s+/g, " ");
+  const yari = Math.floor(temiz.length / 2);
+  const ilk = temiz.slice(0, yari).trim();
+  const son = temiz.slice(yari).trim();
+  return ilk.length > 2 && ilk.toLocaleLowerCase("tr") === son.toLocaleLowerCase("tr")
+    ? ilk
+    : temiz;
+}
+
 function normalizeBaslik(baslik: string): string {
   return baslik.toLocaleLowerCase("tr-TR").replace(/\s+/g, " ").trim();
 }
@@ -166,6 +182,7 @@ export async function icerikAnaliziYap({
 
   /* ---------------- 5. Başlıklar ---------------- */
 
+
   const baslikSayaci = new Map<string, { metin: string; adet: number }>();
   for (const icerik of rakipIcerikler) {
     for (const b of icerik.basliklar) {
@@ -176,10 +193,29 @@ export async function icerikAnaliziYap({
     }
   }
 
+  /*
+   * Site kabuğunu ayıkla.
+   *
+   * Bir e-ticaret sayfasındaki h2/h3 etiketlerinin çoğu içerik değildir:
+   * menü, filtre paneli, altbilgi ve kategori listeleri de bu etiketleri
+   * kullanır. Sıklığa göre azalan sıralayıp ilk sıraları almak, tam da bu
+   * kabuğu "rakiplerin kullandığı başlıklar" diye sunar — kullanıcı kendi
+   * içerik planını "DESTEK", "ÖZEL SAYFALAR", "Hızlı Filtreler" gibi
+   * öğelere göre kurmaya çalışır.
+   *
+   * Ayırt edici işaret şudur: kabuk neredeyse HER sayfada aynıdır, gerçek
+   * içerik başlığı ise bazı sayfalarda bulunur. Bu yüzden sayfaların
+   * büyük çoğunluğunda geçen başlıklar elenir.
+   */
+  const analizEdilenSayfa = rakipIcerikler.length;
+  const KABUK_ESIGI = 0.6;
+
   const basliklar = [...baslikSayaci.values()]
+    .filter((b) => analizEdilenSayfa < 3 || b.adet / analizEdilenSayfa < KABUK_ESIGI)
     .sort((a, b) => b.adet - a.adet)
     .slice(0, 25)
-    .map((b) => b.metin);
+    .map((b) => tekrariSadelestir(b.metin))
+    .filter((b) => b.length > 2);
 
   /* ---------------- 6. Sorular ---------------- */
 

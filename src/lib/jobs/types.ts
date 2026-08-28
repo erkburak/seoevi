@@ -32,6 +32,7 @@ export const TAM_ANALIZ_ADIMLARI: IsAdimi[] = [
   { ad: "Teknik SEO inceleniyor", durum: "bekliyor" },
   { ad: "Anahtar kelimeler analiz ediliyor", durum: "bekliyor" },
   { ad: "Rakipler inceleniyor", durum: "bekliyor" },
+  { ad: "Arama sonuçları toplanıyor", durum: "bekliyor" },
   { ad: "Fırsatlar hesaplanıyor", durum: "bekliyor" },
 ];
 

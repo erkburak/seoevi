@@ -6,6 +6,7 @@ import { z } from "zod";
 import { aktifProjeGetir } from "@/lib/projects";
 import { abonelikDurumu } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 export type AyarSonucu = { hata?: string; basari?: string };
 
@@ -45,6 +46,12 @@ export async function ayarlariKaydet(_onceki: AyarSonucu, veri: FormData): Promi
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const { aktif: proje } = await aktifProjeGetir(user.id);
   if (!proje) return { hata: "Aktif proje bulunamadı." };

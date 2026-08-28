@@ -2,11 +2,13 @@ import "server-only";
 
 import {
   icBaglantiGrafigi,
+  jsIleOlc,
   taramaOzeti,
   taramaSayfalari,
   type TaranmisSayfa,
 } from "@/lib/dataforseo/onpage";
 import { teknikSkor, urunSkoru, kategoriSkoru, type SayfaSinyali } from "@/lib/scoring";
+import { abonelikDurumu } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { baglantiGrafiginiKaydet, oneriUret } from "@/lib/analiz/ic-baglanti";
 import { kaliplariTahminEt, sayfaTuruBelirle } from "@/lib/analiz/siniflandirma";
@@ -276,6 +278,72 @@ export async function taramaSonucunuIsle({
     diger: 0,
   };
 
+  /*
+   * Hangi sayfaların yapısını görebiliyoruz?
+   *
+   * Bir sayfada hiçbir başlık etiketi (h1 de h2 de) yoksa, o sayfanın
+   * yapısı bize görünmüyor demektir: gerçek bir sayfanın hiç başlığı
+   * olmaması olağan değildir, içeriğin tarayıcıda üretilmesi ise çok
+   * yaygındır. Yalnızca h1'e bakmak yetmez; bazı temalarda h1 sunucudan
+   * gelirken alt başlıklar tarayıcıda üretilir ya da tersi olur.
+   */
+  const yapisiGorunmuyor = (x: { h1_sayisi: number; h2_sayisi: number }) =>
+    (x.h1_sayisi ?? 0) === 0 && (x.h2_sayisi ?? 0) === 0;
+
+  const okunabilir = tumSayfalar.filter((s) => (s.durum_kodu ?? 0) === 200);
+  const korSayfalar = okunabilir.filter(yapisiGorunmuyor);
+
+  // Sitenin geneli böyleyse bu bir sayfa kusuru değil, ölçüm sınırıdır.
+  let jsIleYukleniyor =
+    okunabilir.length >= 10 && korSayfalar.length / okunabilir.length >= 0.5;
+
+  /*
+   * İmza görüldüyse ve paket izin veriyorsa yapısı görünmeyen sayfalar
+   * tarayıcı çalıştırılarak yeniden ölçülür. Tüm siteyi bu yöntemle
+   * taramak on iki kat pahalıdır; bu yüzden yalnızca ölçülemeyen ve
+   * yüzeye yakın sayfalar ele alınır, sayı paketle sınırlıdır.
+   */
+  const { limitler } = await abonelikDurumu(proje.user_id);
+  const jsHakki = limitler?.js_olcum === true ? (limitler.js_olcum_sayfa ?? 0) : 0;
+
+  if (jsIleYukleniyor && jsHakki > 0) {
+    const oncelikli = [...korSayfalar]
+      .sort((a, b) => (a.tiklama_derinligi ?? 99) - (b.tiklama_derinligi ?? 99))
+      .slice(0, jsHakki)
+      .map((s) => s.url);
+
+    const olculenler = await jsIleOlc(oncelikli);
+    console.info("[teknik] JavaScript ile ölçülen sayfa", {
+      projeId: proje.id,
+      istenen: oncelikli.length,
+      olculen: olculenler.size,
+    });
+
+    for (let i = 0; i < tumSayfalar.length; i += 1) {
+      const yeni = olculenler.get(tumSayfalar[i].url);
+      if (!yeni) continue;
+      // Yalnızca tarayıcıyla görünen alanlar tazelenir.
+      tumSayfalar[i] = {
+        ...tumSayfalar[i],
+        h1: yeni.h1,
+        h1_sayisi: yeni.h1_sayisi,
+        h2_sayisi: yeni.h2_sayisi,
+        kelime_sayisi: yeni.kelime_sayisi,
+      };
+    }
+  }
+
+  /*
+   * Ölçümden sonra hâlâ yapısı görünmeyen sayfalar için uyarı üretilmez:
+   * o sayfalar hakkında bir şey söyleyemiyoruz. Ölçülebilenler normal
+   * kurallara tabidir.
+   */
+  const olculemeyenler = new Set(
+    tumSayfalar.filter((s) => (s.durum_kodu ?? 0) === 200 && yapisiGorunmuyor(s)).map((s) => s.url),
+  );
+
+  jsIleYukleniyor = okunabilir.length >= 10 && olculemeyenler.size / okunabilir.length >= 0.5;
+
   const sayfaKayitlari = tumSayfalar.map((s) => {
     const tur = sayfaTuruBelirle(s.url, { urunKalibi, kategoriKalibi });
     sayfaTurleri[tur]++;
@@ -338,10 +406,27 @@ export async function taramaSonucunuIsle({
     .eq("project_id", proje.id)
     .eq("status", "acik");
 
+  /*
+   * Site içeriğini JavaScript ile mi yüklüyor?
+   *
+   * Tarama JavaScript çalıştırmadan yapılır (sayfa başına maliyeti on iki
+   * kat düşüktür). Bazı siteler başlıkları ve metni tarayıcıda üretir; bu
+   * durumda tarayıcı başlık etiketlerini HİÇ göremez ve "H1 yok", "içerik
+   * yetersiz" gibi uyarılar sayfa hakkında değil taramanın körlüğü
+   * hakkında olur.
+   *
+   * İmza şudur: sayfaların başlığı ve metni okunabiliyor ama neredeyse
+   * hiçbirinde başlık etiketi yok. Böyle bir sitede yanlış alarm üretmek
+   * yerine durum tek bir bulguyla dürüstçe bildirilir.
+   */
+  // Bu uyarılar yalnızca gerçekten görebildiğimiz sayfalarda anlamlıdır.
+  const KOR_NOKTA_KODLARI = new Set(["h1_eksik", "ince_icerik"]);
+
   const sorunlar: Record<string, unknown>[] = [];
   for (const s of tumSayfalar) {
     for (const tanim of SORUN_TANIMLARI) {
       if (!tanim.kosul(s)) continue;
+      if (KOR_NOKTA_KODLARI.has(tanim.kod) && olculemeyenler.has(s.url)) continue;
       sorunlar.push({
         project_id: proje.id,
         page_id: urlKimlik.get(s.url) ?? null,
@@ -357,6 +442,33 @@ export async function taramaSonucunuIsle({
         detected_at: new Date().toISOString(),
       });
     }
+  }
+
+  if (jsIleYukleniyor) {
+    sorunlar.push({
+      project_id: proje.id,
+      page_id: null,
+      url: proje.url,
+      code: "js_ile_render",
+      category: "tarama",
+      severity: "uyari",
+      title: "Sayfa içeriği JavaScript ile yükleniyor",
+      description:
+        `Taranan ${okunabilir.length} sayfanın ${olculemeyenler.size} tanesinde başlık etiketi okunamadı; ` +
+        "başlıklar ve metin tarayıcıda üretiliyor. Arama motorları bu içeriği genellikle görür, " +
+        "ancak taramamız JavaScript çalıştırmadığı için başlık ve içerik uzunluğu ölçülemedi.",
+      recommendation:
+        "Başlık ve ürün açıklamalarının sunucudan gelen HTML içinde de bulunması, hem tarayıcılar " +
+        "hem arama motorları için en güvenli yoldur. " +
+        (jsHakki > 0
+          ? "Paketiniz tarayıcılı ölçümü kapsıyor; bir sonraki taramada bu sayfalar ölçülecek."
+          : "Ücretli paketlerde SEO Evi bu sayfaları tarayıcı çalıştırarak yeniden ölçer ve " +
+            "başlık ile içerik uzunluğunu gerçek değerleriyle raporlar; deneme paketinde bu " +
+            "ölçüm yapılmadığı için yukarıdaki değerler eksik kalır."),
+      impact: "orta",
+      status: "acik",
+      detected_at: new Date().toISOString(),
+    });
   }
 
   if (sorunlar.length) {

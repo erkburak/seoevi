@@ -272,12 +272,32 @@ function bulgulariCikar(s: Omit<HizliAnalizSonucu, "skor" | "bulgular">): Bulgu[
 
   /* --- H1 --- */
   if (s.h1.length === 0) {
-    b.push({
-      kod: "h1_yok",
-      baslik: "H1 başlığı bulunamadı",
-      aciklama: "Her sayfada sayfanın konusunu özetleyen tek bir H1 başlığı olmalı.",
-      onem: "kritik",
-    });
+    /*
+     * Bu araç sayfayı JavaScript çalıştırmadan okur. İçeriğini tarayıcıda
+     * üreten sitelerde başlıklar HTML'de bulunmaz; "H1 yok" demek sayfa
+     * hakkında değil ölçümün sınırı hakkında olur. İmza, metin okunuyor
+     * ama hiçbir başlık etiketi görünmüyor olmasıdır.
+     */
+    const icerikVarBaslikYok = s.kelimeSayisi > 300 && s.h2Sayisi === 0;
+
+    b.push(
+      icerikVarBaslikYok
+        ? {
+            kod: "baslik_okunamadi",
+            baslik: "Başlıklar okunamadı — içerik JavaScript ile yükleniyor",
+            aciklama:
+              "Sayfada metin var ama hiçbir başlık etiketi görünmüyor; başlıklar tarayıcıda " +
+              "üretiliyor olabilir. Bu hızlı araç sayfayı JavaScript çalıştırmadan okur. " +
+              "Ücretsiz hesap açtığınızda SEO Evi sayfaları tarayıcı çalıştırarak ölçer.",
+            onem: "uyari",
+          }
+        : {
+            kod: "h1_yok",
+            baslik: "H1 başlığı bulunamadı",
+            aciklama: "Her sayfada sayfanın konusunu özetleyen tek bir H1 başlığı olmalı.",
+            onem: "kritik",
+          },
+    );
   } else if (s.h1.length > 1) {
     b.push({
       kod: "h1_fazla",

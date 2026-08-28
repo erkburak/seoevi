@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { kategoriSkoru } from "@/lib/scoring";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 /** Kategoriye hedef anahtar kelime atar ve skoru yeniden hesaplar. */
 export async function hedefKelimeKaydet(
@@ -22,6 +23,12 @@ export async function hedefKelimeKaydet(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const { data: kategori } = await supabase
     .from("categories")

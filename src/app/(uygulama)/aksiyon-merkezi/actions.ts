@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { etkiTakibiBaslat, etkiTakibiIptal } from "@/lib/analiz/etki";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 import type { AksiyonDurumu } from "@/types/database";
 
 const Sema = z.object({
@@ -26,6 +27,12 @@ export async function aksiyonDurumuGuncelle(
   } = await supabase.auth.getUser();
 
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const { error } = await supabase
     .from("seo_actions")

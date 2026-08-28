@@ -28,6 +28,7 @@ const KORUMALI_ONEKLER = [
   "/ai-gorunurlugu",
   "/projeler",
   "/raporlar",
+  "/beraber-inceleyelim",
   "/hesabim",
   "/ayarlar",
   "/baslangic",

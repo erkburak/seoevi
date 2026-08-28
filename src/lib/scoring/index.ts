@@ -644,6 +644,10 @@ export function merchantSkoru(m: MerchantSinyali): { skor: number; eksikler: str
 export type AiSinyali = {
   /** Marka adının web genelinde bahsedilme sayısı. */
   markaBahsi: number;
+  /** Marka bahsi sorgusu gerçekten yapılabildi mi? */
+  markaOlculdu: boolean;
+  /** Sitede taranmış sayfa sayısı — yapısal veri kapsaması bundan ölçülür. */
+  toplamSayfa: number;
   /** Bahsedilen farklı alan adı sayısı. */
   bahsedenAlanAdi: number;
   /** Öne çıkan snippet / cevap kutusu kazanılan kelime sayısı. */
@@ -666,15 +670,26 @@ export type AiSinyali = {
   otorite: number;
 };
 
+/**
+ * AI görünürlüğü kırılımı.
+ *
+ * `null`, o sinyalin ÖLÇÜLEMEDİĞİNİ gösterir — sıfır olduğunu değil.
+ * Aradaki fark kullanıcı için önemlidir: "ürünleriniz görünmüyor" ile
+ * "bakacak ürün verisi yok" aynı şey değildir.
+ */
 export type AiKirilimi = {
-  marka_gorunurlugu: number;
-  icerik_guvenilirligi: number;
-  konu_otoritesi: number;
-  urun_gorunurlugu: number;
-  soru_kapsamasi: number;
+  marka_gorunurlugu: number | null;
+  icerik_guvenilirligi: number | null;
+  konu_otoritesi: number | null;
+  urun_gorunurlugu: number | null;
+  soru_kapsamasi: number | null;
 };
 
-export function aiGorunurlukSkoru(s: AiSinyali): { skor: number; kirilim: AiKirilimi } {
+export function aiGorunurlukSkoru(s: AiSinyali): {
+  skor: number;
+  kirilim: AiKirilimi;
+  olculenSinyal: number;
+} {
   const markaGorunurlugu = arasinda(
     (Math.log10(Math.max(1, s.markaBahsi)) / 4) * 70 + arasinda(s.bahsedenAlanAdi * 3, 0, 30),
     0,
@@ -693,16 +708,25 @@ export function aiGorunurlukSkoru(s: AiSinyali): { skor: number; kirilim: AiKiri
     100,
   );
 
-  const urunGorunurlugu = s.toplamUrun > 0 ? arasinda((s.alisverisGorunur / s.toplamUrun) * 100, 0, 100) : 0;
+  const urunGorunurlugu = arasinda((s.alisverisGorunur / Math.max(1, s.toplamUrun)) * 100, 0, 100);
 
-  const soruKapsamasi = s.toplamSoru > 0 ? arasinda((s.cevaplananSoru / s.toplamSoru) * 100, 0, 100) : 0;
+  const soruKapsamasi = arasinda((s.cevaplananSoru / Math.max(1, s.toplamSoru)) * 100, 0, 100);
 
+  /*
+   * Ölçülemeyen sinyal sıfır sayılmaz.
+   *
+   * Ürün verisi olmayan bir sitede "ürün görünürlüğü %0" demek, ürünlerin
+   * görünmediğini iddia etmektir; oysa bakılacak ürün yoktur. Aynı şekilde
+   * arama sonucu verisi yokken "soru kapsaması %0" ölçüm değil bilgisizlik
+   * bildirir. Bu yüzden veri bulunmayan sinyaller null döner ve skor
+   * yalnızca ölçülebilenlerin ağırlıklı ortalamasından hesaplanır.
+   */
   const kirilim: AiKirilimi = {
-    marka_gorunurlugu: Math.round(markaGorunurlugu),
-    icerik_guvenilirligi: Math.round(icerikGuvenilirligi),
-    konu_otoritesi: Math.round(konuOtoritesi),
-    urun_gorunurlugu: Math.round(urunGorunurlugu),
-    soru_kapsamasi: Math.round(soruKapsamasi),
+    marka_gorunurlugu: s.markaOlculdu ? Math.round(markaGorunurlugu) : null,
+    icerik_guvenilirligi: s.toplamSayfa > 0 ? Math.round(icerikGuvenilirligi) : null,
+    konu_otoritesi: s.toplamKelime > 0 ? Math.round(konuOtoritesi) : null,
+    urun_gorunurlugu: s.toplamUrun > 0 ? Math.round(urunGorunurlugu) : null,
+    soru_kapsamasi: s.toplamSoru > 0 ? Math.round(soruKapsamasi) : null,
   };
 
   const agirlik: Record<keyof AiKirilimi, number> = {
@@ -713,12 +737,17 @@ export function aiGorunurlukSkoru(s: AiSinyali): { skor: number; kirilim: AiKiri
     soru_kapsamasi: 10,
   };
 
-  const toplamAgirlik = Object.values(agirlik).reduce((t, a) => t + a, 0);
-  const skor = Math.round(
-    (Object.keys(kirilim) as (keyof AiKirilimi)[]).reduce((t, k) => t + kirilim[k] * agirlik[k], 0) / toplamAgirlik,
+  const olculenler = (Object.keys(kirilim) as (keyof AiKirilimi)[]).filter(
+    (k) => kirilim[k] !== null,
   );
 
-  return { skor, kirilim };
+  const toplamAgirlik = olculenler.reduce((t, k) => t + agirlik[k], 0);
+  const skor =
+    toplamAgirlik > 0
+      ? Math.round(olculenler.reduce((t, k) => t + (kirilim[k] as number) * agirlik[k], 0) / toplamAgirlik)
+      : 0;
+
+  return { skor, kirilim, olculenSinyal: olculenler.length };
 }
 
 /* ================================================================== */

@@ -9,6 +9,7 @@ import { projeSahibiMi } from "@/lib/projects";
 import { limitKontrol } from "@/lib/subscription";
 import { eszamanliIsUygunMu, harcamaIzni, platformTavaniUygunMu } from "@/lib/guvenlik";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 export const maxDuration = 60;
 
@@ -25,6 +26,12 @@ export async function POST(istek: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
+
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) {
+    return NextResponse.json({ hata: yazmaEngeli }, { status: 403 });
+  }
+
     return NextResponse.json({ hata: "Oturum bulunamadı." }, { status: 401 });
   }
 

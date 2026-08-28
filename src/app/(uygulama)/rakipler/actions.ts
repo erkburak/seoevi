@@ -10,6 +10,7 @@ import { harcamaIzni } from "@/lib/guvenlik";
 import { abonelikDurumu } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 import { alanAdiNormalize } from "@/lib/utils";
 
 export type RakipSonucu = { hata?: string; basari?: string };
@@ -27,6 +28,12 @@ export async function rakipEkle(_onceki: RakipSonucu, veri: FormData): Promise<R
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const { aktif: proje } = await aktifProjeGetir(user.id);
   if (!proje) return { hata: "Aktif proje bulunamadı." };
@@ -93,6 +100,12 @@ export async function rakipSil(rakipId: string): Promise<RakipSonucu> {
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
 
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
+
   const { error } = await supabase.from("competitors").delete().eq("id", rakipId);
 
   if (error) {
@@ -111,6 +124,12 @@ export async function rakipAnaliziniYenile(): Promise<RakipSonucu> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const { aktif: proje } = await aktifProjeGetir(user.id);
   if (!proje) return { hata: "Aktif proje bulunamadı." };

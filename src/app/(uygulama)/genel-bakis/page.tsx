@@ -14,6 +14,7 @@ import { OlcumKarti } from "@/components/ui/metric";
 import { FirsatSkoru, PozisyonDegisimi, SkorCubugu, SkorHalkasi } from "@/components/ui/score";
 import { BolumBasligi } from "@/components/ui/surface";
 import { guncelAlarmlar } from "@/lib/analiz/alarm";
+import { IS_TURU_ADI, type IsTuru } from "@/lib/jobs/types";
 import { projeBaglami } from "@/lib/projects";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { kisaSayi, sayi, tarih } from "@/lib/utils";
@@ -461,7 +462,7 @@ export default async function GenelBakisSayfasi({
                       <li key={i.id} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
                           <p className="truncate text-[13.5px] text-ink-900">
-                            {i.job_type === "tam_analiz" ? "Tam site analizi" : i.job_type}
+                            {IS_TURU_ADI[i.job_type as IsTuru] ?? "Analiz"}
                           </p>
                           <p className="mt-0.5 text-[12px] text-ink-400">{tarih(i.created_at)}</p>
                         </div>

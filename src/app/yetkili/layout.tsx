@@ -1,4 +1,4 @@
-import { ArrowLeft, Image as ImageIcon, LayoutGrid, Tags, Users } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, LayoutGrid, Tags, Users, MessagesSquare} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -14,6 +14,7 @@ const MENU = [
   { etiket: "Genel", href: "/yetkili", ikon: LayoutGrid },
   { etiket: "Kullanıcılar", href: "/yetkili/kullanicilar", ikon: Users },
   { etiket: "Marka", href: "/yetkili/marka", ikon: ImageIcon },
+  { etiket: "Talepler", href: "/yetkili/talepler", ikon: MessagesSquare },
   { etiket: "Sayfa Bilgileri", href: "/yetkili/sayfa-bilgileri", ikon: Tags },
 ];
 

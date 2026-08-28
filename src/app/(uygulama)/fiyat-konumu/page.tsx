@@ -61,7 +61,7 @@ export default async function FiyatKonumuSayfasi() {
   }
 
   const [ozet, { data: calisanIs }] = await Promise.all([
-    fiyatKonumlari(proje.id, 80),
+    fiyatKonumlari(proje.id, 80, proje.domain),
     supabase
       .from("audit_jobs")
       .select("id")
@@ -109,6 +109,20 @@ export default async function FiyatKonumuSayfasi() {
           </Uyari>
         ) : null}
 
+        {ozet.fiyatiBilinmeyen > 0 ? (
+          <Uyari
+            ton="uyari"
+            baslik={`${sayi(ozet.fiyatiBilinmeyen)} üründe kendi fiyatınız okunamadı`}
+          >
+            Fiyat karşılaştırması ancak sizin fiyatınız bilinirse yapılabilir. Ürün sayfalarınızda
+            yapısal veri (schema.org <code>Product</code> / <code>Offer</code>) bulunmuyor ve bu
+            ürünlerde Google Alışveriş sonuçlarında da görünmüyorsunuz. Bu ürünler için aşağıda
+            yalnızca rakip fiyat aralığı gösterilir — pahalı ya da ucuz olduğunuz iddia edilmez.
+            Ürün sayfalarınıza yapısal veri eklemek hem bu karşılaştırmayı hem de Google&apos;daki
+            zengin sonuç görünümünüzü açar.
+          </Uyari>
+        ) : null}
+
         <section className="grid grid-cols-2 gap-6 rounded-[14px] border border-line bg-white p-5 sm:grid-cols-4">
           <OzetDegeri etiket="Karşılaştırılan ürün" deger={sayi(ozet.incelenenUrun)} />
           <OzetDegeri etiket="En ucuz olduğunuz" deger={sayi(ozet.enUcuzUrun)} />
@@ -123,7 +137,11 @@ export default async function FiyatKonumuSayfasi() {
         <section>
           <BolumBasligi
             baslik="Ürün bazında fiyat konumu"
-            aciklama="En pahalı kaldığınız ürünler önce gelir; en çok satış kaybettirenler bunlar."
+            aciklama={
+              ozet.fiyatiBilinmeyen === ozet.incelenenUrun
+                ? "Kendi fiyatınız okunamadığı için sıralama rakip satıcı sayısına göre yapılır; en çok satıcının yarıştığı ürünler önce gelir."
+                : "Fiyatı bilinen ürünlerde en pahalı kaldıklarınız önce gelir; en çok satış kaybettirenler bunlar. Fiyatı okunamayanlar sona alınır."
+            }
             sag={<Ipucu metin="Fiyatlar Google Alışveriş sonuçlarındaki satıcı verisinden alınır ve analiz anındaki değerleri yansıtır." />}
           />
 

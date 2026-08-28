@@ -4,15 +4,26 @@ import { headers } from "next/headers";
 
 import { olayKaydet } from "@/lib/analytics";
 import { hizliAnalizYap, type HizliAnalizSonucu } from "@/lib/araclar/hizli-analiz";
-import { hizSiniriKontrol, istemciAdresi } from "@/lib/ratelimit";
+import { aracGunlukToplam, kotaOku, kotaTuket, sifirlanmayaKalan } from "@/lib/araclar/kota";
+import { istemciAdresi } from "@/lib/ratelimit";
+import { SEO_ANALIZ_GUNLUK_TAVAN, SEO_ANALIZ_KOTASI } from "@/config/ucretsiz-araclar";
 
 export type UcretsizAnalizSonucu = {
   hata?: string;
   sonuc?: HizliAnalizSonucu;
+  /** Bugün kalan hak — arayüzde gösterilir. */
+  kalan?: number;
 };
 
-/** Aynı IP adresinin saatlik analiz hakkı. */
-const SAATLIK_LIMIT = 8;
+/** Kalan günlük hakkı sorar; sayfa açılışında gösterilir. */
+export async function kalanAnalizHakki(parmakIzi: string): Promise<{ kalan: number; limit: number }> {
+  if (!parmakIzi || parmakIzi.length < 8) {
+    return { kalan: SEO_ANALIZ_KOTASI.parmakIziLimiti, limit: SEO_ANALIZ_KOTASI.parmakIziLimiti };
+  }
+  const basliklar = await headers();
+  const durum = await kotaOku(SEO_ANALIZ_KOTASI, parmakIzi, istemciAdresi(basliklar));
+  return { kalan: durum.kalan, limit: durum.limit };
+}
 
 /**
  * Herkese açık hızlı SEO analizi.
@@ -23,20 +34,31 @@ export async function ucretsizAnalizYap(
   veri: FormData,
 ): Promise<UcretsizAnalizSonucu> {
   const site = String(veri.get("site") ?? "").trim();
+  const parmakIzi = String(veri.get("parmakIzi") ?? "");
   if (!site) return { hata: "Analiz etmek istediğiniz web sitesinin adresini girin." };
 
   const basliklar = await headers();
   const adres = istemciAdresi(basliklar);
 
-  const sinir = await hizSiniriKontrol({
-    anahtar: `ucretsiz-analiz:${adres}`,
-    limit: SAATLIK_LIMIT,
-    pencereSaniye: 3600,
-  });
+  // Platform tavanı: kişisel kota aşılsa bile toplam maliyet sınırlı kalır.
+  if ((await aracGunlukToplam(SEO_ANALIZ_KOTASI.arac)) >= SEO_ANALIZ_GUNLUK_TAVAN) {
+    return { hata: "Bugünkü ücretsiz analiz kapasitesi doldu. Yarın tekrar deneyebilirsiniz." };
+  }
 
-  if (!sinir.izinli) {
+  /*
+   * Kota cihaz parmak iziyle tutulur; gizli sekme veya çerez temizlemek
+   * hakkı sıfırlamaz. Sayaç Türkiye saatiyle her gece 00:00'da yenilenir.
+   */
+  const kota = await kotaTuket(SEO_ANALIZ_KOTASI, parmakIzi, adres);
+
+  if (!kota.izinli) {
+    const kalanSure = sifirlanmayaKalan();
     return {
-      hata: "Saatlik ücretsiz analiz hakkınızı kullandınız. Sınırsız analiz için ücretsiz hesap oluşturabilirsiniz.",
+      hata:
+        `Bugünkü ücretsiz analiz hakkınızı kullandınız. Hakkınız ${kalanSure.saat} saat ` +
+        `${kalanSure.dakika} dakika sonra yenilenecek — ücretsiz hesap açarak sitenizin ` +
+        "tamamını analiz ettirebilirsiniz.",
+      kalan: 0,
     };
   }
 

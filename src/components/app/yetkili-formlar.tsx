@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Trash2, Upload } from "lucide-react";
+import { Check, Eye, Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 
@@ -8,10 +8,12 @@ import {
   kullaniciKisitla,
   markaGorseliSil,
   markaGorseliYukle,
+  goruntulemeyeBasla,
   paketDegistir,
   sayfaUstVerisiKaydet,
   type YetkiliSonucu,
 } from "@/app/yetkili/actions";
+import { talebiYanitla } from "@/app/(uygulama)/beraber-inceleyelim/actions";
 import { Buton } from "@/components/ui/button";
 import { Uyari } from "@/components/ui/feedback";
 import { Pencere } from "@/components/ui/overlay";
@@ -377,5 +379,126 @@ export function SayfaUstVerisiFormu({
         </Buton>
       </form>
     </details>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Destek talebi yanıtlama                                             */
+/* ------------------------------------------------------------------ */
+
+const TALEP_DURUMLARI = [
+  { deger: "inceleniyor", ad: "İnceleniyor" },
+  { deger: "cevaplandi", ad: "Yanıtlandı" },
+  { deger: "kapandi", ad: "Kapandı" },
+] as const;
+
+export function TalepYanitlama({
+  talepId,
+  mevcutYanit,
+  mevcutDurum,
+}: {
+  talepId: string;
+  mevcutYanit: string;
+  mevcutDurum: string;
+}) {
+  const [yanit, setYanit] = useState(mevcutYanit);
+  const [durum, setDurum] = useState<(typeof TALEP_DURUMLARI)[number]["deger"]>(
+    mevcutDurum === "kapandi" ? "kapandi" : mevcutDurum === "cevaplandi" ? "cevaplandi" : "inceleniyor",
+  );
+  const [hata, setHata] = useState<string | null>(null);
+  const [kaydedildi, setKaydedildi] = useState(false);
+  const [bekliyor, basla] = useTransition();
+  const router = useRouter();
+
+  function kaydet() {
+    setHata(null);
+    setKaydedildi(false);
+    basla(async () => {
+      const sonuc = await talebiYanitla({ talepId, yanit, durum });
+      if (sonuc.hata) {
+        setHata(sonuc.hata);
+        return;
+      }
+      setKaydedildi(true);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div>
+      {hata ? (
+        <Uyari ton="kritik" className="mb-3">
+          {hata}
+        </Uyari>
+      ) : null}
+
+      <textarea
+        value={yanit}
+        onChange={(e) => setYanit(e.target.value)}
+        rows={4}
+        maxLength={4000}
+        placeholder="Kullanıcıya verilecek yanıt. Verisine bakıp somut bir öneriyle dönün."
+        className="w-full rounded-[10px] border border-line bg-white px-3.5 py-3 text-[13.5px] leading-relaxed text-ink-900 placeholder:text-ink-300 focus:border-ink-400 focus:outline-none focus:ring-4 focus:ring-ink-900/5"
+      />
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <select
+          value={durum}
+          onChange={(e) => setDurum(e.target.value as typeof durum)}
+          className="h-9 cursor-pointer rounded-[8px] border border-line bg-white px-2.5 text-[13px] text-ink-800 focus:border-ink-400 focus:outline-none"
+        >
+          {TALEP_DURUMLARI.map((d) => (
+            <option key={d.deger} value={d.deger}>
+              {d.ad}
+            </option>
+          ))}
+        </select>
+
+        <Buton boyut="sm" onClick={kaydet} yukleniyor={bekliyor} disabled={!yanit.trim()}>
+          Yanıtı Gönder
+        </Buton>
+
+        {kaydedildi ? (
+          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-positive">
+            <Check className="size-3.5" aria-hidden />
+            Kaydedildi
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Kullanıcı olarak görüntüleme                                        */
+/* ------------------------------------------------------------------ */
+
+export function GoruntuleDugmesi({ kullaniciId }: { kullaniciId: string }) {
+  const [bekliyor, basla] = useTransition();
+  const [hata, setHata] = useState<string | null>(null);
+  const router = useRouter();
+
+  function basla2() {
+    setHata(null);
+    basla(async () => {
+      const sonuc = await goruntulemeyeBasla(kullaniciId);
+      if (sonuc.hata) {
+        setHata(sonuc.hata);
+        return;
+      }
+      router.push("/genel-bakis");
+      router.refresh();
+    });
+  }
+
+  return (
+    <span className="inline-flex flex-col items-end gap-1">
+      <Buton gorunum="sessiz" boyut="sm" onClick={basla2} yukleniyor={bekliyor}>
+        <Eye aria-hidden />
+        Görüntüle
+      </Buton>
+      {hata ? <span className="text-[11.5px] text-critical">{hata}</span> : null}
+    </span>
   );
 }

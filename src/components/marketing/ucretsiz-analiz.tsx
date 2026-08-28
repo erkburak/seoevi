@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Check, Info, X } from "lucide-react";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { ucretsizAnalizYap, type UcretsizAnalizSonucu } from "@/app/ucretsiz-seo-analizi/actions";
 import { Buton } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Uyari } from "@/components/ui/feedback";
 import { OzetDegeri } from "@/components/ui/metric";
 import { SkorHalkasi, SEVIYE_ETIKET, skorSeviyesi } from "@/components/ui/score";
 import { BolumBasligi } from "@/components/ui/surface";
+import { parmakIziAl } from "@/lib/araclar/parmak-izi";
+import { kalanAnalizHakki } from "@/app/ucretsiz-seo-analizi/actions";
 import { sayi } from "@/lib/utils";
 import type { Bulgu } from "@/lib/araclar/hizli-analiz";
 
@@ -41,11 +43,38 @@ const SIRA: Bulgu["onem"][] = ["kritik", "uyari", "bilgi", "olumlu"];
 
 export function UcretsizAnalizAraci() {
   const [durum, gonder, bekliyor] = useActionState(ucretsizAnalizYap, BOS);
+  const [parmakIzi, setParmakIzi] = useState("");
+  const [kalan, setKalan] = useState<{ kalan: number; limit: number } | null>(null);
   const s = durum.sonuc;
+
+  /*
+   * Kota cihaz parmak iziyle tutulur: gizli sekme açmak veya çerezleri
+   * silmek hakkı sıfırlamaz. Parmak izi tarayıcıda üretilir ve yalnızca
+   * özeti sunucuda saklanır.
+   */
+  useEffect(() => {
+    let iptal = false;
+    void (async () => {
+      const izi = await parmakIziAl();
+      if (iptal) return;
+      setParmakIzi(izi);
+      setKalan(await kalanAnalizHakki(izi));
+    })();
+    return () => {
+      iptal = true;
+    };
+  }, []);
+
+  // Analiz sonrası kalan hak tazelenir.
+  useEffect(() => {
+    if (!parmakIzi || bekliyor) return;
+    void kalanAnalizHakki(parmakIzi).then(setKalan);
+  }, [durum, parmakIzi, bekliyor]);
 
   return (
     <div className="space-y-10">
       <form action={gonder} className="mx-auto flex max-w-xl flex-col gap-2 sm:flex-row">
+        <input type="hidden" name="parmakIzi" value={parmakIzi} />
         <input
           name="site"
           type="text"
@@ -55,10 +84,18 @@ export function UcretsizAnalizAraci() {
           required
           className="h-12 min-w-0 flex-1 rounded-[12px] border border-line bg-white px-4 text-[15px] text-ink-900 placeholder:text-ink-300 focus:border-ink-400 focus:outline-none focus:ring-4 focus:ring-ink-900/5"
         />
-        <Buton type="submit" boyut="lg" yukleniyor={bekliyor}>
+        <Buton type="submit" boyut="lg" yukleniyor={bekliyor} disabled={!parmakIzi}>
           Analizi Başlat
         </Buton>
       </form>
+
+      {kalan ? (
+        <p className="-mt-7 text-center text-[12.5px] text-ink-400">
+          {kalan.kalan > 0
+            ? `Bugün ${kalan.kalan} ücretsiz analiz hakkınız var · hesap gerekmez`
+            : "Bugünkü ücretsiz hakkınızı kullandınız · hak her gece 00:00'da yenilenir"}
+        </p>
+      ) : null}
 
       {durum.hata ? (
         <div className="mx-auto max-w-xl">

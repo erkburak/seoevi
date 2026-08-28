@@ -309,6 +309,52 @@ export async function tekSayfaAnalizi(
   return ilk ? sayfaCevir(ilk) : null;
 }
 
+/**
+ * Sayfaları JavaScript çalıştırarak yeniden ölçer.
+ *
+ * Tarama JavaScript'siz yapılır; içeriğini tarayıcıda üreten sitelerde bu
+ * yöntem başlıkları göremez. Burada yalnızca önemli sayfalar, tarayıcı
+ * çalıştırılarak yeniden okunur — sayfa başına on iki kat pahalı olduğu
+ * için sayı çağıran tarafça sınırlanır.
+ */
+export async function jsIleOlc(urller: string[]): Promise<Map<string, TaranmisSayfa>> {
+  const sonuc = new Map<string, TaranmisSayfa>();
+  if (!urller.length) return sonuc;
+
+  // Sağlayıcı tek istekte birden çok görev kabul eder; parça parça gönderilir.
+  const PARCA = 25;
+  for (let i = 0; i < urller.length; i += PARCA) {
+    const dilim = urller.slice(i, i + PARCA);
+    const gövde = dilim.map((url) => ({
+      url,
+      enable_javascript: true,
+      load_resources: true,
+      validate_micromarkup: false,
+    }));
+
+    try {
+      const yanit = await dfsIstek<{ items?: HamSayfa[] }>(
+        "/on_page/instant_pages",
+        gövde,
+      );
+
+      for (const gorev of yanit?.tasks ?? []) {
+        const ham = gorev.result?.[0]?.items?.[0];
+        const sayfa = ham ? sayfaCevir(ham) : null;
+        if (sayfa) sonuc.set(sayfa.url, sayfa);
+      }
+    } catch (hata) {
+      // Ölçüm başarısız olursa ucuz taramadan gelen veri korunur.
+      console.error("[onpage] JavaScript ile ölçüm başarısız", {
+        adet: dilim.length,
+        mesaj: hata instanceof Error ? hata.message : String(hata),
+      });
+    }
+  }
+
+  return sonuc;
+}
+
 /** Sayfadaki yapısal işaretlemeyi (schema) okur. */
 export async function sayfaSchemalari(gorevId: string, url: string): Promise<string[]> {
   try {

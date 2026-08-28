@@ -1,4 +1,5 @@
 import { KenarCubuguIcerigi } from "@/components/app/kenar-cubugu";
+import { GoruntulemeBandi } from "@/components/app/goruntuleme-bandi";
 import { UstCubuk } from "@/components/app/ust-cubuk";
 import { YukseltmeKarti } from "@/components/app/yukseltme-karti";
 import { projeBaglami } from "@/lib/projects";
@@ -7,7 +8,8 @@ import { sunucuIstemcisi } from "@/lib/supabase/server";
 import type { Bildirim } from "@/types/database";
 
 export default async function UygulamaYerlesimi({ children }: { children: React.ReactNode }) {
-  const { kullanici, profil, proje, projeler } = await projeBaglami();
+  const { kullanici, profil, proje, projeler, saltOkunur, goruntulenenEposta } =
+    await projeBaglami();
   const supabase = await sunucuIstemcisi();
 
   const [{ data: bildirimVerisi }, { plan, abonelik, denemeGunKaldi }, kullanimlar] =
@@ -25,7 +27,8 @@ export default async function UygulamaYerlesimi({ children }: { children: React.
   const bildirimler = (bildirimVerisi ?? []) as Bildirim[];
   const okunmamis = bildirimler.filter((b) => !b.is_read).length;
 
-  const kullaniciAdi = profil.full_name?.trim() || (kullanici.email ?? "Kullanıcı").split("@")[0];
+  const kullaniciAdi =
+    profil?.full_name?.trim() || (kullanici.email ?? "Kullanıcı").split("@")[0];
 
   /* --- Paket yükseltme kartı --- */
   const sonraki = plan ? await sonrakiPlan(plan.id) : null;
@@ -60,6 +63,7 @@ export default async function UygulamaYerlesimi({ children }: { children: React.
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {saltOkunur ? <GoruntulemeBandi eposta={goruntulenenEposta} /> : null}
         <UstCubuk
           projeler={projeler}
           aktifProje={proje}

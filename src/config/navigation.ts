@@ -12,6 +12,7 @@ import {
   ListChecks,
   FolderKanban,
   BarChart3,
+  MessagesSquare,
 } from "lucide-react";
 
 export type NavItem = {
@@ -74,6 +75,7 @@ export const APP_NAV: NavGroup[] = [
     items: [
       { label: "Projeler", href: "/projeler", icon: FolderKanban },
       { label: "Raporlar", href: "/raporlar", icon: BarChart3 },
+      { label: "Beraber İnceleyelim", href: "/beraber-inceleyelim", icon: MessagesSquare },
     ],
   },
 ];

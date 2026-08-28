@@ -1,6 +1,13 @@
 import "server-only";
 
-import { METRIK_ADLARI, METRIK_LIMITI, planGetir, planlariGetir } from "@/lib/plans";
+import {
+  METRIK_ADLARI,
+  METRIK_LIMITI,
+  METRIK_PERIYODU,
+  planGetir,
+  planlariGetir,
+} from "@/lib/plans";
+import { turkiyeGunu } from "@/lib/araclar/kota";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { buAy } from "@/lib/utils";
 import type { Abonelik, Plan, PlanLimitleri } from "@/types/database";
@@ -61,13 +68,18 @@ export async function kullanimOzeti(kullaniciId: string): Promise<KullanimOzeti[
   const { limitler } = await abonelikDurumu(kullaniciId);
   if (!limitler) return [];
 
+  // Her metrik kendi dönemindeki sayacıyla okunur.
   const { data } = await supabase
     .from("usage")
-    .select("metric, used")
+    .select("metric, used, period")
     .eq("user_id", kullaniciId)
-    .eq("period", buAy());
+    .in("period", [buAy(), turkiyeGunu()]);
 
-  const kullanimlar = new Map((data ?? []).map((k) => [k.metric, k.used]));
+  const kullanimlar = new Map(
+    (data ?? [])
+      .filter((k) => k.period === metrikDonemi(k.metric))
+      .map((k) => [k.metric, k.used]),
+  );
 
   return Object.keys(METRIK_LIMITI).map((metrik) => {
     const limitAnahtari = METRIK_LIMITI[metrik];
@@ -83,6 +95,16 @@ export async function kullanimOzeti(kullaniciId: string): Promise<KullanimOzeti[
       oran: limit > 0 ? Math.min(100, Math.round((kullanilan / limit) * 100)) : 0,
     };
   });
+}
+
+/**
+ * Metriğin içinde bulunduğu sayaç dönemi.
+ *
+ * Günlük metriklerde Türkiye günü kullanılır; böylece sayaç her gece
+ * 00:00'da kendiliğinden sıfırlanır.
+ */
+export function metrikDonemi(metrik: string): string {
+  return METRIK_PERIYODU[metrik] === "gun" ? turkiyeGunu() : buAy();
 }
 
 export class LimitAsildiHatasi extends Error {
@@ -125,7 +147,7 @@ export async function limitKontrol({
     .from("usage")
     .select("used")
     .eq("user_id", kullaniciId)
-    .eq("period", buAy())
+    .eq("period", metrikDonemi(metrik))
     .eq("metric", metrik)
     .maybeSingle();
 
@@ -148,6 +170,7 @@ export async function kullanimArtir({
     p_user_id: kullaniciId,
     p_metric: metrik,
     p_amount: adet,
+    p_period: metrikDonemi(metrik),
   });
 
   if (error) {
@@ -176,6 +199,7 @@ export async function kullanimAzalt({
     p_user_id: kullaniciId,
     p_metric: metrik,
     p_amount: adet,
+    p_period: metrikDonemi(metrik),
   });
 
   if (error) {

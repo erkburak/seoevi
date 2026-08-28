@@ -2,6 +2,7 @@ import "server-only";
 
 import { aiGorunurlukAnaliziYap } from "@/lib/analiz/ai-gorunurluk";
 import { aksiyonlariUret } from "@/lib/analiz/aksiyon";
+import { serpToplamasiYap } from "@/lib/analiz/serp-toplama";
 import { oneriUret } from "@/lib/analiz/ic-baglanti";
 import { backlinkAnaliziYap } from "@/lib/analiz/backlink";
 import { icerikAnaliziYap } from "@/lib/analiz/icerik";
@@ -218,12 +219,31 @@ export async function isiIlerlet(isId: string): Promise<IlerletmeSonucu> {
       });
 
       if (sonuc.bitti) {
-        await isiKaydet(isId, {
-          status: "tamamlandi",
-          progress: 100,
-          completed_at: new Date().toISOString(),
-          normalized_data: (params.sonuc ?? null) as never,
-        });
+        /*
+         * Tamamlanma yalnızca bir kez duyurulur.
+         *
+         * Durum sayfası işi yoklarken aynı anda ilerletir; birden çok
+         * yoklama aynı anda bitiş noktasına ulaşabilir. Koşulsuz yazımda
+         * her biri ayrı bir "Analiz tamamlandı" bildirimi üretiyordu —
+         * kullanıcı aynı bildirimden onlarca görüyordu. Koşullu güncelleme
+         * yalnızca gerçekten durum değiştiren çağrıya satır döndürür.
+         */
+        const { data: gecis } = await supabase
+          .from("audit_jobs")
+          .update({
+            status: "tamamlandi",
+            progress: 100,
+            completed_at: new Date().toISOString(),
+            normalized_data: (params.sonuc ?? null) as never,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", isId)
+          .neq("status", "tamamlandi")
+          .select("id");
+
+        if (!gecis?.length) {
+          return { durum: "tamamlandi", ilerleme: 100, devamEdiyor: false };
+        }
 
         await bildirimEkle({
           kullaniciId: is.user_id,
@@ -267,13 +287,24 @@ export async function isiIlerlet(isId: string): Promise<IlerletmeSonucu> {
       return { durum: "yeniden_deneniyor", ilerleme, devamEdiyor: true, hata: kullaniciMesaji };
     }
 
-    await isiKaydet(isId, {
-      status: "hatali",
-      attempts: deneme,
-      error: kullaniciMesaji,
-      error_code: hata instanceof DataForSeoHatasi ? String(hata.kod) : "bilinmiyor",
-      completed_at: new Date().toISOString(),
-    });
+    const { data: hataGecisi } = await supabase
+      .from("audit_jobs")
+      .update({
+        status: "hatali",
+        attempts: deneme,
+        error: kullaniciMesaji,
+        error_code: hata instanceof DataForSeoHatasi ? String(hata.kod) : "bilinmiyor",
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", isId)
+      .neq("status", "hatali")
+      .select("id");
+
+    // Zaten hatalı işaretlenmişse bildirim ve iade tekrarlanmaz.
+    if (!hataGecisi?.length) {
+      return { durum: "hatali", ilerleme, devamEdiyor: false, hata: kullaniciMesaji };
+    }
 
     /*
      * Analiz sonuçsuz bittiyse tarama hakkı iade edilir. Kullanıcı hiçbir
@@ -478,15 +509,33 @@ async function adimiCalistir({
       return {
         adimlar: adimlariGuncelle(adimlar, 3, "tamamlandi"),
         params: { ...params, rakip },
-        ilerleme: 88,
+        ilerleme: 78,
         sonrakiAdim: 5,
         bitti: false,
         beklemede: false,
       };
     }
 
-    /* --- 5: Fırsatlar, skorlar ve aksiyonlar --- */
+    /* --- 5: Arama sonuçları --- */
     case 5: {
+      /*
+       * Pazaryeri Radarı, Rakip Hareketleri ve Sayfa Çakışması bu veriyi
+       * okur. Bu adım olmadan üç modül de hiçbir zaman veri görmüyordu.
+       */
+      const serp = await serpToplamasiYap({ proje });
+
+      return {
+        adimlar: adimlariGuncelle(adimlar, 4, "tamamlandi"),
+        params: { ...params, serp },
+        ilerleme: 90,
+        sonrakiAdim: 6,
+        bitti: false,
+        beklemede: false,
+      };
+    }
+
+    /* --- 6: Fırsatlar, skorlar ve aksiyonlar --- */
+    case 6: {
       await skorlariGuncelle(proje, params);
       // Sıralama verisi tazelendi; bağlantı önerileri artık hangi sayfanın
       // vurulacak mesafede olduğunu bilerek üretilebilir.
@@ -494,7 +543,7 @@ async function adimiCalistir({
       const aksiyon = await aksiyonlariUret(proje);
 
       return {
-        adimlar: adimlariGuncelle(adimlar, 4, "tamamlandi"),
+        adimlar: adimlariGuncelle(adimlar, 5, "tamamlandi"),
         params: { ...params, aksiyon, sonuc: { ...params } },
         ilerleme: 100,
         sonrakiAdim: 99,

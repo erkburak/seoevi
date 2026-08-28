@@ -21,9 +21,18 @@ export type AiAnaliziSonucu = {
   bahsedenAlanAdi: number;
 };
 
-/** Alan adından marka adını çıkarır: ornekmagaza.com -> ornekmagaza */
-function markaAdi(proje: Proje): string {
-  return proje.name && proje.name !== proje.domain ? proje.name : proje.domain.split(".")[0];
+/**
+ * Marka bahsi araması için kullanılacak ifade.
+ *
+ * Alan adının ilk parçasını kullanmak yanıltıcıdır: "gursoy.com" için
+ * "gursoy" aranınca Türkçe web'deki on binlerce SOYADI geçişi marka bahsi
+ * sanılır ve görünürlük olduğundan çok yüksek ölçülür.
+ *
+ * Alan adının tamamı ("gursoy.com") bu belirsizliği taşımaz; bir sayfada
+ * geçiyorsa gerçekten bu siteden söz ediliyordur.
+ */
+function markaIfadesi(proje: Proje): string {
+  return proje.domain;
 }
 
 export async function aiGorunurlukAnaliziYap({
@@ -34,12 +43,13 @@ export async function aiGorunurlukAnaliziYap({
   tazelik?: Tazelik;
 }): Promise<AiAnaliziSonucu> {
   const supabase = yoneticiIstemcisi();
-  const marka = markaAdi(proje);
+  const marka = markaIfadesi(proje);
 
   /* ---------------- Marka bahsedilmeleri ---------------- */
 
   let markaBahsi = 0;
   let bahsedenAlanAdi = 0;
+  let markaOlculdu = false;
   let bahisler: Awaited<ReturnType<typeof icerikBahisleri>> = [];
 
   try {
@@ -47,6 +57,7 @@ export async function aiGorunurlukAnaliziYap({
     markaBahsi = ozet.toplam_bahis;
     bahsedenAlanAdi = ozet.bahseden_alan_adi;
     bahisler = await icerikBahisleri({ ifade: marka, limit: 20, tazelik });
+    markaOlculdu = true;
   } catch (hata) {
     console.warn("[ai] marka bahisleri alınamadı", {
       mesaj: hata instanceof Error ? hata.message : String(hata),
@@ -111,8 +122,10 @@ export async function aiGorunurlukAnaliziYap({
 
   const otorite = ((backlink?.scores ?? {}) as { otorite?: number }).otorite ?? 0;
 
-  const { skor, kirilim } = aiGorunurlukSkoru({
+  const { skor, kirilim, olculenSinyal } = aiGorunurlukSkoru({
     markaBahsi,
+    markaOlculdu,
+    toplamSayfa: toplamSayfa ?? 0,
     bahsedenAlanAdi,
     snippetSayisi,
     cevaplananSoru,
@@ -127,6 +140,18 @@ export async function aiGorunurlukAnaliziYap({
   });
 
   /* ---------------- Kaydet ---------------- */
+
+  /*
+   * Aynı gün için tek kayıt tutulur. Her çalıştırmada yeni satır eklemek
+   * geçmiş grafiğini aynı değerin tekrarıyla dolduruyordu.
+   */
+  const bugun = new Date();
+  bugun.setUTCHours(0, 0, 0, 0);
+  await supabase
+    .from("ai_visibility")
+    .delete()
+    .eq("project_id", proje.id)
+    .gte("created_at", bugun.toISOString());
 
   await supabase.from("ai_visibility").insert({
     project_id: proje.id,
@@ -144,6 +169,8 @@ export async function aiGorunurlukAnaliziYap({
       toplam_soru: soruOzellikleri.length,
       schema_kapsamasi:
         toplamSayfa && toplamSayfa > 0 ? Math.round(((schemaliSayfa ?? 0) / toplamSayfa) * 100) : 0,
+      olculen_sinyal: olculenSinyal,
+      marka_ifadesi: marka,
     } as never,
   });
 

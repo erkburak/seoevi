@@ -13,6 +13,7 @@ import { harcamaIzni } from "@/lib/guvenlik";
 import { aktifProjeGetir } from "@/lib/projects";
 import { kullanimArtir, limitKontrol } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 export const maxDuration = 60;
 
@@ -41,6 +42,12 @@ export async function POST(istek: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ hata: "Oturum bulunamadı." }, { status: 401 });
+
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) {
+    return NextResponse.json({ hata: yazmaEngeli }, { status: 403 });
+  }
+
 
   const sonuc = Sema.safeParse(await istek.json().catch(() => null));
   if (!sonuc.success) return NextResponse.json({ hata: "Geçersiz istek." }, { status: 400 });

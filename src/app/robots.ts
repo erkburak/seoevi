@@ -34,6 +34,7 @@ export default function robots(): MetadataRoute.Robots {
     "/ai-gorunurlugu",
     "/projeler",
     "/raporlar",
+    "/beraber-inceleyelim",
     "/hesabim",
     "/ayarlar",
     "/baslangic",

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { goruntulemeDurumu } from "@/lib/yetkili";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import type { Proje, Profil } from "@/types/database";
 
@@ -109,8 +110,36 @@ export async function aktifProjeGetir(kullaniciId: string): Promise<{
  * Proje yoksa proje oluşturma akışına yönlendirir.
  */
 export async function projeBaglami() {
-  const kullanici = await oturumKullanicisi();
-  const profil = await profilGetir(kullanici.id);
+  const gercekKullanici = await oturumKullanicisi();
+
+  /*
+   * Yetkili "kullanıcı olarak görüntüle" kipindeyse bağlam hedef
+   * kullanıcının verisiyle kurulur.
+   *
+   * Kip her istekte yeniden doğrulanır: çerezin varlığı tek başına yetki
+   * vermez, gerçek kullanıcının yetkili olduğu her seferinde kontrol
+   * edilir. Kip salt okunurdur; yazma eylemleri ayrıca engellenir.
+   */
+  const goruntuleme = await goruntulemeDurumu();
+
+  if (goruntuleme.hedefKullaniciId) {
+    const hedefProfil = await profilGetir(goruntuleme.hedefKullaniciId);
+    const { aktif, tumu } = await aktifProjeGetir(goruntuleme.hedefKullaniciId);
+
+    if (!aktif) redirect("/yetkili/kullanicilar");
+
+    return {
+      kullanici: { ...gercekKullanici, id: goruntuleme.hedefKullaniciId },
+      profil: hedefProfil,
+      proje: aktif,
+      projeler: tumu,
+      saltOkunur: true,
+      goruntulenenEposta: goruntuleme.hedefEposta,
+    };
+  }
+
+  const kullanici = gercekKullanici;
+  const profil = await profiliSagla(kullanici);
 
   // Yönlendirme sunucu tarafında olduğu için kullanıcı panel ekranını hiç
   // görmez; nereden geldiğini bildirmek hedef sayfaya bırakılır.
@@ -119,7 +148,14 @@ export async function projeBaglami() {
   const { aktif, tumu } = await aktifProjeGetir(kullanici.id);
   if (!aktif) redirect("/projeler/yeni?yonlendirildi=1");
 
-  return { kullanici, profil, proje: aktif, projeler: tumu };
+  return {
+    kullanici,
+    profil,
+    proje: aktif,
+    projeler: tumu,
+    saltOkunur: false,
+    goruntulenenEposta: null as string | null,
+  };
 }
 
 /** Belirli bir projeyi sahiplik kontrolüyle döndürür. */

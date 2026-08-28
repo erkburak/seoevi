@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
-import { yetkiliMi, yonetimKaydi } from "@/lib/yetkili";
+import { GORUNTULEME_COOKIE, yetkiliMi, yonetimKaydi } from "@/lib/yetkili";
 
 export type YetkiliSonucu = { hata?: string; basari?: string };
 
@@ -300,4 +301,65 @@ export async function sayfaUstVerisiKaydet(
   revalidatePath(sonuc.data.path);
   revalidatePath("/yetkili/sayfa-bilgileri");
   return { basari: `${sonuc.data.path} güncellendi.` };
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Kullanıcı olarak görüntüleme                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Bir kullanıcının panelini salt okunur görüntülemeye başlar.
+ *
+ * Çerez tek başına yetki vermez: her istekte gerçek kullanıcının yetkili
+ * olduğu yeniden doğrulanır. Kipte hiçbir yazma işlemi yapılamaz.
+ */
+export async function goruntulemeyeBasla(hedefKullaniciId: string): Promise<YetkiliSonucu> {
+  const sonuc = z.string().uuid().safeParse(hedefKullaniciId);
+  if (!sonuc.success) return { hata: "Geçersiz kullanıcı." };
+
+  const { yetkili, kullaniciId } = await yetkiliMi();
+  if (!yetkili || !kullaniciId) return { hata: "Bu işlem için yetkiniz yok." };
+  if (sonuc.data === kullaniciId) return { hata: "Kendi hesabınızı görüntüleyemezsiniz." };
+
+  const { data: hedef } = await yoneticiIstemcisi()
+    .from("profiles")
+    .select("id, email")
+    .eq("id", sonuc.data)
+    .maybeSingle();
+
+  if (!hedef) return { hata: "Kullanıcı bulunamadı." };
+
+  const cerezler = await cookies();
+  cerezler.set(GORUNTULEME_COOKIE, sonuc.data, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    // Kip kalıcı olmamalı: unutulan bir görüntüleme oturumu risklidir.
+    maxAge: 60 * 60,
+  });
+
+  await yonetimKaydi({
+    yetkiliId: kullaniciId,
+    islem: "goruntulemeye_basladi",
+    hedefId: sonuc.data,
+    detay: { eposta: hedef.email },
+  });
+
+  return { basari: `${hedef.email ?? "Kullanıcı"} olarak görüntüleniyor.` };
+}
+
+/** Görüntüleme kipinden çıkar. */
+export async function goruntulemeyiBitir(): Promise<YetkiliSonucu> {
+  const cerezler = await cookies();
+  const hedef = cerezler.get(GORUNTULEME_COOKIE)?.value;
+  cerezler.delete(GORUNTULEME_COOKIE);
+
+  const { yetkili, kullaniciId } = await yetkiliMi();
+  if (yetkili && kullaniciId && hedef) {
+    await yonetimKaydi({ yetkiliId: kullaniciId, islem: "goruntulemeyi_bitirdi", hedefId: hedef });
+  }
+
+  return { basari: "Görüntüleme sonlandırıldı." };
 }

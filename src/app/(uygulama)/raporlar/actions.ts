@@ -10,6 +10,7 @@ import { RAPOR_BOLUMLERI, type RaporBolumu } from "@/lib/analiz/rapor-bolumleri"
 import { aktifProjeGetir } from "@/lib/projects";
 import { kullanimArtir, limitKontrol } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 export type RaporSonucu = { hata?: string };
 
@@ -42,6 +43,12 @@ export async function raporUret(_onceki: RaporSonucu, veri: FormData): Promise<R
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const { aktif: proje } = await aktifProjeGetir(user.id);
   if (!proje) return { hata: "Aktif proje bulunamadı." };

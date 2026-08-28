@@ -13,6 +13,7 @@ import { harcamaIzni } from "@/lib/guvenlik";
 import { projeLimitiUygunMu } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 import { alanAdiNormalize } from "@/lib/utils";
 import type { SiteTuru } from "@/types/database";
 
@@ -54,6 +55,12 @@ export async function projeOlustur(_onceki: ProjeSonucu, veri: FormData): Promis
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const izin = await harcamaIzni(user);
   if (!izin.izinli) return { hata: izin.mesaj };
@@ -169,6 +176,12 @@ export async function projeSil(projeId: string, onayMetni: string): Promise<Proj
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
 
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
+
   const { data: proje } = await supabase
     .from("projects")
     .select("id, domain")
@@ -233,6 +246,10 @@ export async function projeyeGec(veri: FormData): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/giris");
+
+  // Görüntüleme kipi salt okunurdur; bu eylem değer döndürmediği için
+  // sessizce sonlandırılır.
+  if (await yazmaEngeliVarMi()) return;
 
   const { data: proje } = await supabase
     .from("projects")

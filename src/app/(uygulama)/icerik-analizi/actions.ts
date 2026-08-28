@@ -9,6 +9,7 @@ import { aktifProjeGetir } from "@/lib/projects";
 import { harcamaIzni } from "@/lib/guvenlik";
 import { limitKontrol, kullanimArtir } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 export type IcerikSonucu = { hata?: string; basari?: string; isId?: string };
 
@@ -33,6 +34,12 @@ export async function icerikAnaliziBaslat(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { hata: "Oturum bulunamadı." };
+
+  // Görüntüleme kipi salt okunurdur; yetkili başkasının hesabında
+  // değişiklik yapamaz.
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) return { hata: yazmaEngeli };
+
 
   const izin = await harcamaIzni(user);
   if (!izin.izinli) return { hata: izin.mesaj };

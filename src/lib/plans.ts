@@ -21,6 +21,8 @@ export const LIMIT_ADLARI: Record<keyof PlanLimitleri, string> = {
   geri_baglanti: "Geri bağlantı analizi",
   merchant: "Merchant analizi",
   ai_gorunurlugu: "AI görünürlüğü",
+  js_olcum: "JavaScript ile ölçüm",
+  js_olcum_sayfa: "JavaScript ile ölçülen sayfa",
 };
 
 /** Kullanım sayaçlarının okunabilir adları. */
@@ -30,6 +32,21 @@ export const METRIK_ADLARI: Record<string, string> = {
   keyword: "Anahtar kelime araştırması",
   ai: "AI analizi",
   rapor: "Rapor",
+};
+
+/**
+ * Metriğin sayaç dönemi.
+ *
+ * `gunluk_serp` günlük bir limittir; sayacı aylık tutmak, kullanıcının
+ * ayda yalnızca bir günlük hak kadar sorgu yapabilmesi anlamına gelir.
+ * Bu yüzden dönem metriğe göre belirlenir.
+ */
+export const METRIK_PERIYODU: Record<string, "gun" | "ay"> = {
+  serp: "gun",
+  site_taramasi: "ay",
+  keyword: "ay",
+  ai: "ay",
+  rapor: "ay",
 };
 
 /** Kullanım metriğinin hangi plan limitine karşılık geldiği. */

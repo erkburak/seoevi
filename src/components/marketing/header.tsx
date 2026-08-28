@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 const MENU = [
   { etiket: "Özellikler", href: "/#ozellikler" },
+  { etiket: "SEO Analiz Aracı", href: "/#seo-analiz-araci" },
   { etiket: "Sıra Bulucu", href: "/google-sira-bulucu" },
   { etiket: "E-ticaret SEO", href: "/e-ticaret-seo" },
   { etiket: "Rakip Analizi", href: "/rakip-seo-analizi" },

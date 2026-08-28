@@ -152,31 +152,34 @@ export default async function AiGorunurluguSayfasi() {
 
           <div className="rounded-[14px] border border-line bg-white p-5">
             <div className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2">
-              <SkorCubugu
-                etiket="Marka görünürlüğü"
-                skor={guncel.brand_visibility}
-                ipucu={<Ipucu metin={KIRILIM_ACIKLAMASI.brand_visibility} />}
-              />
-              <SkorCubugu
-                etiket="İçerik güvenilirliği"
-                skor={guncel.content_trust}
-                ipucu={<Ipucu metin={KIRILIM_ACIKLAMASI.content_trust} />}
-              />
-              <SkorCubugu
-                etiket="Konu otoritesi"
-                skor={guncel.topic_authority}
-                ipucu={<Ipucu metin={KIRILIM_ACIKLAMASI.topic_authority} />}
-              />
-              <SkorCubugu
-                etiket="Ürün görünürlüğü"
-                skor={guncel.product_visibility}
-                ipucu={<Ipucu metin={KIRILIM_ACIKLAMASI.product_visibility} />}
-              />
-              <SkorCubugu
-                etiket="Soru kapsama oranı"
-                skor={guncel.question_coverage}
-                ipucu={<Ipucu metin={KIRILIM_ACIKLAMASI.question_coverage} />}
-              />
+              {(
+                [
+                  ["Marka görünürlüğü", guncel.brand_visibility, "brand_visibility"],
+                  ["İçerik güvenilirliği", guncel.content_trust, "content_trust"],
+                  ["Konu otoritesi", guncel.topic_authority, "topic_authority"],
+                  ["Ürün görünürlüğü", guncel.product_visibility, "product_visibility"],
+                  ["Soru kapsama oranı", guncel.question_coverage, "question_coverage"],
+                ] as [string, number | null, keyof typeof KIRILIM_ACIKLAMASI][]
+              ).map(([etiket, deger, anahtar]) =>
+                deger === null ? (
+                  /* Ölçülemeyen sinyal sıfır gibi gösterilmez; aradaki fark
+                     kullanıcı için anlamlıdır. */
+                  <div key={etiket} className="flex items-baseline justify-between gap-3">
+                    <span className="flex items-center gap-1.5 text-[13px] text-ink-500">
+                      {etiket}
+                      <Ipucu metin={KIRILIM_ACIKLAMASI[anahtar]} />
+                    </span>
+                    <span className="text-[12.5px] text-ink-300">ölçülemedi</span>
+                  </div>
+                ) : (
+                  <SkorCubugu
+                    key={etiket}
+                    etiket={etiket}
+                    skor={deger}
+                    ipucu={<Ipucu metin={KIRILIM_ACIKLAMASI[anahtar]} />}
+                  />
+                ),
+              )}
             </div>
           </div>
         </section>

@@ -1,5 +1,9 @@
 import { SayfaBasligi } from "@/components/app/sayfa-basligi";
-import { KisitlaDugmesi, PaketDegistirDugmesi } from "@/components/app/yetkili-formlar";
+import {
+  GoruntuleDugmesi,
+  KisitlaDugmesi,
+  PaketDegistirDugmesi,
+} from "@/components/app/yetkili-formlar";
 import { Rozet } from "@/components/ui/badge";
 import { tumPaketler } from "@/lib/plans";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
@@ -136,6 +140,7 @@ export default async function YetkiliKullanicilarSayfasi() {
                         mevcutDurum={abonelik?.status ?? null}
                         planlar={atanabilirPlanlar}
                       />
+                      <GoruntuleDugmesi kullaniciId={p.id} />
                       <KisitlaDugmesi kullaniciId={p.id} kisitli={p.is_blocked ?? false} />
                     </div>
                   </td>

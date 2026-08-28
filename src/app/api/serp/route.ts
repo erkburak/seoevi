@@ -9,6 +9,7 @@ import { firsatSkoru } from "@/lib/scoring";
 import { kullanimArtir, limitKontrol } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { yazmaEngeliVarMi } from "@/lib/yetkili";
 
 export const maxDuration = 60;
 
@@ -30,6 +31,12 @@ export async function POST(istek: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({ hata: "Oturum bulunamadı." }, { status: 401 });
+
+  const yazmaEngeli = await yazmaEngeliVarMi();
+  if (yazmaEngeli) {
+    return NextResponse.json({ hata: yazmaEngeli }, { status: 403 });
+  }
+
 
   const sonuc = Sema.safeParse(await istek.json().catch(() => null));
   if (!sonuc.success || (!sonuc.data.keywordId && !sonuc.data.keyword)) {

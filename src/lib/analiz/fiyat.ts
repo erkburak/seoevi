@@ -40,6 +40,14 @@ export type FiyatOzeti = {
   incelenenUrun: number;
   pahaliUrun: number;
   enUcuzUrun: number;
+  /**
+   * Kendi fiyatı okunamayan ürün sayısı.
+   *
+   * Fiyat karşılaştırması ancak kendi fiyatımızı bilirsek yapılabilir.
+   * Ürün sayfasında yapısal veri (schema.org Product/Offer) yoksa ve
+   * Alışveriş sonuçlarında da görünmüyorsak fiyatımız okunamaz.
+   */
+  fiyatiBilinmeyen: number;
   /** En ucuza göre ortalama fark yüzdesi. */
   ortalamaFarkYuzde: number | null;
   satirlar: FiyatKonumu[];
@@ -64,7 +72,19 @@ export const DURUM_ADI: Record<FiyatKonumu["durum"], string> = {
 /**
  * Merchant denetimlerinden fiyat konumunu çıkarır.
  */
-export async function fiyatKonumlari(projeId: string, limit = 100): Promise<FiyatOzeti> {
+/** İki alan adı aynı satıcıya mı ait? */
+function bizimMi(aday: string, bizim: string): boolean {
+  const sade = (x: string) => x.toLocaleLowerCase("tr").replace(/^www\./, "").trim();
+  const a = sade(aday);
+  const b = sade(bizim);
+  return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`);
+}
+
+export async function fiyatKonumlari(
+  projeId: string,
+  limit = 100,
+  bizimAlanAdi = "",
+): Promise<FiyatOzeti> {
   const supabase = yoneticiIstemcisi();
 
   const { data: denetimler } = await supabase
@@ -79,6 +99,7 @@ export async function fiyatKonumlari(projeId: string, limit = 100): Promise<Fiya
       incelenenUrun: 0,
       pahaliUrun: 0,
       enUcuzUrun: 0,
+      fiyatiBilinmeyen: 0,
       ortalamaFarkYuzde: null,
       satirlar: [],
     };
@@ -102,7 +123,20 @@ export async function fiyatKonumlari(projeId: string, limit = 100): Promise<Fiya
         r.fiyat !== null && r.fiyat > 0,
     );
 
-    const bizimFiyat = urun?.price === null || urun?.price === undefined ? null : Number(urun.price);
+    /*
+     * Kendi fiyatımız iki kaynaktan gelebilir: ürün kaydındaki fiyat
+     * (sayfadaki yapısal veriden okunur) ya da Alışveriş sonuçlarında
+     * kendi listemiz. İkisi de yoksa karşılaştırma yapılamaz ve bunu
+     * "en ucuzsunuz" diye yorumlamak yanlış olur.
+     */
+    const kendiListemiz = (denetim.competitors ?? []).find(
+      (r) => r.alan_adi && bizimMi(r.alan_adi, bizimAlanAdi),
+    );
+
+    const bizimFiyat =
+      urun?.price !== null && urun?.price !== undefined
+        ? Number(urun.price)
+        : (kendiListemiz?.fiyat ?? null);
 
     // Kendi fiyatımız da dahil tüm fiyatlar
     const tumFiyatlar = [...rakipler.map((r) => r.fiyat), ...(bizimFiyat ? [bizimFiyat] : [])].sort(
@@ -140,8 +174,18 @@ export async function fiyatKonumlari(projeId: string, limit = 100): Promise<Fiya
     });
   }
 
-  // En pahalı olanlar önce: en çok kaybettirenler.
-  satirlar.sort((a, b) => (b.farkYuzde ?? -1) - (a.farkYuzde ?? -1));
+  /*
+   * Önce fiyatı bilinenler, en pahalıdan ucuza. Fiyatı okunamayanlar
+   * sona alınır: onlar hakkında "pahalı" ya da "ucuz" denemez, yalnızca
+   * rakip fiyat aralığı gösterilebilir.
+   */
+  satirlar.sort((a, b) => {
+    const aBilinen = a.farkYuzde !== null;
+    const bBilinen = b.farkYuzde !== null;
+    if (aBilinen !== bBilinen) return aBilinen ? -1 : 1;
+    if (!aBilinen) return (b.saticiSayisi ?? 0) - (a.saticiSayisi ?? 0);
+    return (b.farkYuzde ?? 0) - (a.farkYuzde ?? 0);
+  });
 
   const farklar = satirlar
     .map((s) => s.farkYuzde)
@@ -151,6 +195,7 @@ export async function fiyatKonumlari(projeId: string, limit = 100): Promise<Fiya
     incelenenUrun: satirlar.length,
     pahaliUrun: satirlar.filter((s) => s.durum === "pahali" || s.durum === "cok_pahali").length,
     enUcuzUrun: satirlar.filter((s) => s.durum === "en_ucuz").length,
+    fiyatiBilinmeyen: satirlar.filter((s) => s.bizimFiyat === null).length,
     ortalamaFarkYuzde: farklar.length
       ? Math.round((farklar.reduce((t, f) => t + f, 0) / farklar.length) * 10) / 10
       : null,

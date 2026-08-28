@@ -19,6 +19,7 @@ import { PazarlamaAltbilgisi } from "@/components/marketing/footer";
 import { PazarlamaBasligi } from "@/components/marketing/header";
 import { Hero } from "@/components/marketing/hero";
 import { PaketKartlari } from "@/components/marketing/paketler";
+import { UcretsizAnalizAraci } from "@/components/marketing/ucretsiz-analiz";
 import { SITE } from "@/config/site";
 import { planlariGetir } from "@/lib/plans";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
@@ -87,6 +88,27 @@ export default async function AnaSayfa() {
       <main id="icerik">
         <Hero />
         <GuvenSeridi />
+
+        {/* Ücretsiz araç: ürünü anlatmadan önce göstermek en ikna edici yol. */}
+        <section id="seo-analiz-araci" className="border-b border-line bg-white">
+          <div className="mx-auto max-w-6xl px-5 py-20 lg:px-8 lg:py-24">
+            <div className="mx-auto mb-9 max-w-2xl text-center">
+              <p className="text-[12.5px] font-medium uppercase tracking-[0.08em] text-ink-400">
+                Ücretsiz araç
+              </p>
+              <h2 className="mt-2 text-[30px] font-semibold tracking-[-0.02em] text-ink-900 sm:text-[34px]">
+                SEO Analiz Aracı
+              </h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-500">
+                Sitenizin adresini yazın; başlık, açıklama, başlık yapısı, görsel alt metinleri,
+                yapısal veri ve teknik işaretleri anında kontrol edelim. Kayıt gerekmez, günde bir
+                analiz ücretsizdir.
+              </p>
+            </div>
+            <UcretsizAnalizAraci />
+          </div>
+        </section>
+
         <NasilCalisir />
         <SkorBolumu />
         <KelimeFirsatlariBolumu />
