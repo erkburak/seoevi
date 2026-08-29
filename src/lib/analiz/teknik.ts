@@ -11,7 +11,11 @@ import { teknikSkor, urunSkoru, kategoriSkoru, type SayfaSinyali } from "@/lib/s
 import { abonelikDurumu } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { baglantiGrafiginiKaydet, oneriUret } from "@/lib/analiz/ic-baglanti";
-import { kaliplariTahminEt, sayfaTuruBelirle } from "@/lib/analiz/siniflandirma";
+import {
+  kaliplariTahminEt,
+  sayfaTuruBelirle,
+  yapiylaKategorileriBul,
+} from "@/lib/analiz/siniflandirma";
 import type { Etki, Onem, Proje, SayfaTuru } from "@/types/database";
 
 /**
@@ -142,6 +146,23 @@ const SORUN_TANIMLARI: SorunTanimi[] = [
     kosul: (s) => (s.durum_kodu ?? 200) >= 400,
   },
   {
+    kod: "yonlendirilen_sayfa",
+    kategori: "tarama",
+    onem: "uyari",
+    baslik: "İç bağlantı yönlendirmeye gidiyor",
+    aciklama:
+      "Bu adres başka bir sayfaya yönlendiriyor ama site içinden hâlâ bağlantı alıyor. " +
+      "Yönlendirmeler tarama bütçesi harcar ve bağlantı gücünün bir kısmını yolda bırakır.",
+    oneri:
+      "Sitenizdeki bağlantıları yönlendirmenin hedefine doğrudan çevirin. Sayfa kalıcı olarak " +
+      "kaldırıldıysa 301 kullanın; geçici değilse 302 yerine 301 tercih edin.",
+    etki: "orta",
+    kosul: (s) => {
+      const kod = s.durum_kodu ?? 200;
+      return kod >= 300 && kod < 400;
+    },
+  },
+  {
     kod: "alt_metin_eksik",
     kategori: "gorsel",
     onem: "uyari",
@@ -262,6 +283,49 @@ export async function taramaSonucunuIsle({
   const urunKalibi = ayarlar?.product_url_pattern ?? kaliplar.urunKalibi;
   const kategoriKalibi = ayarlar?.category_url_pattern ?? kaliplar.kategoriKalibi;
 
+  /*
+   * Adresten kategori çıkmıyorsa yapıya bakılır.
+   *
+   * Düz adresli sitelerde ("/vestel-buzdolabi") kategori ile ürün
+   * adresten ayırt edilemez; bu durumda hiç kategori bulunamaz ve
+   * e-ticaret ekranları boş kalır. Kategori sayfası altındaki ürünleri
+   * listelediği için sayfa kalıbının getirdiği taban bağlantı sayısının
+   * belirgin üstünde bağlantı taşır.
+   */
+  const adresteKategoriVar = tumSayfalar.some(
+    (x) => sayfaTuruBelirle(x.url, { urunKalibi, kategoriKalibi }) === "kategori",
+  );
+
+  const yapisalKategoriler = adresteKategoriVar
+    ? new Set<string>()
+    : yapiylaKategorileriBul(
+        tumSayfalar.map((x) => ({
+          url: x.url,
+          icLink: x.ic_link,
+          kelimeSayisi: x.kelime_sayisi,
+        })),
+      );
+
+  /*
+   * Kullanıcı iki kalıbı da "/" gibi genel bir değere ayarlamışsa, bunun
+   * anlamı "sitemin tamamı ürün ve kategori sayfalarından oluşuyor"dur.
+   * Kalıp ayrım için kullanılamaz ama bu niyet korunur: yapı sinyali
+   * kategori demiyorsa sayfa ürün sayılır.
+   */
+  const tumSiteEticaret =
+    (urunKalibi ?? "").trim().length <= 1 &&
+    (kategoriKalibi ?? "").trim().length <= 1 &&
+    Boolean(ayarlar?.product_url_pattern);
+
+  /** Adres kalıbı ve yapı sinyallerini birlikte değerlendirir. */
+  const turBelirle = (x: { url: string }): SayfaTuru => {
+    const adresTuru = sayfaTuruBelirle(x.url, { urunKalibi, kategoriKalibi });
+    if (adresTuru === "anasayfa" || adresTuru === "icerik") return adresTuru;
+    if (yapisalKategoriler.has(x.url)) return "kategori";
+    if (adresTuru !== "diger") return adresTuru;
+    return tumSiteEticaret ? "urun" : "diger";
+  };
+
   if (!ayarlar?.product_url_pattern && urunKalibi) {
     await supabase
       .from("project_settings")
@@ -345,7 +409,7 @@ export async function taramaSonucunuIsle({
   jsIleYukleniyor = okunabilir.length >= 10 && olculemeyenler.size / okunabilir.length >= 0.5;
 
   const sayfaKayitlari = tumSayfalar.map((s) => {
-    const tur = sayfaTuruBelirle(s.url, { urunKalibi, kategoriKalibi });
+    const tur = turBelirle(s);
     sayfaTurleri[tur]++;
 
     let yol = s.url;
@@ -422,11 +486,37 @@ export async function taramaSonucunuIsle({
   // Bu uyarılar yalnızca gerçekten görebildiğimiz sayfalarda anlamlıdır.
   const KOR_NOKTA_KODLARI = new Set(["h1_eksik", "ince_icerik"]);
 
+  /*
+   * İçeriğe bakan kurallar yalnızca gövdesi olan sayfalarda anlamlıdır.
+   *
+   * Yönlendirilen (3xx) ya da hata veren (4xx/5xx) bir adreste başlık,
+   * açıklama veya H1 aramak yanlış bulgular üretir: sayfa zaten yok.
+   * Kullanıcıya "silinmiş sayfada H1 ekleyin" demek, listeyi gerçek
+   * işlerden uzaklaştırır. Böyle adresler kendi kurallarıyla bildirilir.
+   */
+  const ICERIK_KURALLARI = new Set([
+    "title_eksik",
+    "title_kisa",
+    "title_uzun",
+    "aciklama_eksik",
+    "aciklama_uzun",
+    "h1_eksik",
+    "h1_coklu",
+    "ince_icerik",
+    "canonical_eksik",
+    "schema_eksik",
+    "alt_metin_eksik",
+    "ic_link_az",
+  ]);
+
+  const govdesiVar = (x: { durum_kodu: number | null }) => (x.durum_kodu ?? 200) < 300;
+
   const sorunlar: Record<string, unknown>[] = [];
   for (const s of tumSayfalar) {
     for (const tanim of SORUN_TANIMLARI) {
       if (!tanim.kosul(s)) continue;
       if (KOR_NOKTA_KODLARI.has(tanim.kod) && olculemeyenler.has(s.url)) continue;
+      if (ICERIK_KURALLARI.has(tanim.kod) && !govdesiVar(s)) continue;
       sorunlar.push({
         project_id: proje.id,
         page_id: urlKimlik.get(s.url) ?? null,
@@ -482,10 +572,10 @@ export async function taramaSonucunuIsle({
   /* ---------------- Ürün ve kategori kayıtları ---------------- */
 
   const urunSayfalari = tumSayfalar.filter(
-    (s) => sayfaTuruBelirle(s.url, { urunKalibi, kategoriKalibi }) === "urun",
+    (s) => turBelirle(s) === "urun",
   );
   const kategoriSayfalari = tumSayfalar.filter(
-    (s) => sayfaTuruBelirle(s.url, { urunKalibi, kategoriKalibi }) === "kategori",
+    (s) => turBelirle(s) === "kategori",
   );
 
   const urunSkorlari: number[] = [];
@@ -535,6 +625,27 @@ export async function taramaSonucunuIsle({
     }
   }
 
+  /*
+   * Türü değişen sayfaların eski kaydı silinir.
+   *
+   * Sınıflandırma değiştiğinde (ör. bir sayfa artık kategori sayılıyorsa)
+   * ekleme-veya-güncelleme eski satırı bırakır; sayfa hem ürün hem
+   * kategori olarak sayılır ve e-ticaret ekranlarındaki adetler şişer.
+   */
+  const urunUrlleri = new Set(urunSayfalari.map((x) => x.url));
+  const { data: kayitliUrunler } = await supabase
+    .from("products")
+    .select("id, url")
+    .eq("project_id", proje.id);
+
+  const fazlaUrunler = (kayitliUrunler ?? [])
+    .filter((x) => !urunUrlleri.has(x.url))
+    .map((x) => x.id);
+
+  if (fazlaUrunler.length) {
+    await supabase.from("products").delete().in("id", fazlaUrunler);
+  }
+
   const kategoriSkorlari: number[] = [];
   if (kategoriSayfalari.length) {
     const kayitlar = kategoriSayfalari.map((s) => {
@@ -567,6 +678,20 @@ export async function taramaSonucunuIsle({
     for (let i = 0; i < kayitlar.length; i += 500) {
       await supabase.from("categories").upsert(kayitlar.slice(i, i + 500) as never, { onConflict: "project_id,url" });
     }
+  }
+
+  const kategoriUrlleri = new Set(kategoriSayfalari.map((x) => x.url));
+  const { data: kayitliKategoriler } = await supabase
+    .from("categories")
+    .select("id, url")
+    .eq("project_id", proje.id);
+
+  const fazlaKategoriler = (kayitliKategoriler ?? [])
+    .filter((x) => !kategoriUrlleri.has(x.url))
+    .map((x) => x.id);
+
+  if (fazlaKategoriler.length) {
+    await supabase.from("categories").delete().in("id", fazlaKategoriler);
   }
 
   /* ---------------- Skorlar ---------------- */

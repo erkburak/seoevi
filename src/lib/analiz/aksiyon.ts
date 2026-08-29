@@ -63,6 +63,15 @@ export type AksiyonUretimSonucu = {
   kritik: number;
 };
 
+/**
+ * Bir aksiyonda saklanacak azami adres.
+ *
+ * Kullanıcı "hangi sayfalar" sorusunun cevabını burada arar; sekiz adres
+ * göstermek işi yapılamaz kılar. Sınır yalnızca kaydın makul boyutta
+ * kalması için vardır.
+ */
+const AZAMI_ADRES = 200;
+
 export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu> {
   const supabase = yoneticiIstemcisi();
 
@@ -143,7 +152,7 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
       effort: KOD_ZORLUK[grup.sorun.code] ?? "orta",
       status: "bekliyor",
       affected_count: adet,
-      source_urls: grup.urller.slice(0, 50) as never,
+      source_urls: grup.urller.slice(0, AZAMI_ADRES) as never,
       dedupe_key: anahtar,
       data: { kod: grup.sorun.code, sayfa_turu: grup.sayfaTuru } as never,
     });
@@ -216,7 +225,7 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
     .eq("project_id", proje.id)
     .lt("seo_score", 60)
     .order("seo_score", { ascending: true })
-    .limit(50);
+    .limit(AZAMI_ADRES);
 
   if (zayifUrunSayisi && zayifUrunSayisi > 0) {
     aksiyonlar.push({
@@ -232,7 +241,7 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
       effort: "orta" as Zorluk,
       status: "bekliyor",
       affected_count: zayifUrunSayisi,
-      source_urls: (zayifUrunler ?? []).map((u) => u.url).slice(0, 50) as never,
+      source_urls: (zayifUrunler ?? []).map((u) => u.url).slice(0, AZAMI_ADRES) as never,
       dedupe_key: "zayif_urun",
       data: {} as never,
     });
@@ -246,7 +255,7 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
     .eq("project_id", proje.id)
     .lt("seo_score", 60)
     .order("seo_score", { ascending: true })
-    .limit(50);
+    .limit(AZAMI_ADRES);
 
   if (zayifKategoriSayisi && zayifKategoriSayisi > 0) {
     aksiyonlar.push({
@@ -262,7 +271,7 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
       effort: "orta" as Zorluk,
       status: "bekliyor",
       affected_count: zayifKategoriSayisi,
-      source_urls: (zayifKategoriler ?? []).map((k) => k.url).slice(0, 50) as never,
+      source_urls: (zayifKategoriler ?? []).map((k) => k.url).slice(0, AZAMI_ADRES) as never,
       dedupe_key: "zayif_kategori",
       data: {} as never,
     });
@@ -324,7 +333,7 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
       effort: "orta" as Zorluk,
       status: "bekliyor",
       affected_count: stok.cakisanUrun,
-      source_urls: stok.satirlar.slice(0, 50).map((s) => s.url) as never,
+      source_urls: stok.satirlar.slice(0, AZAMI_ADRES).map((s) => s.url) as never,
       dedupe_key: "stok_cakismasi",
       data: {
         kayip_ziyaret: stok.toplamKayipZiyaret,
@@ -409,7 +418,7 @@ export async function aksiyonlariUret(proje: Proje): Promise<AksiyonUretimSonucu
       effort: "kolay" as Zorluk,
       status: "bekliyor",
       affected_count: hedefler.size,
-      source_urls: [...hedefler].slice(0, 50) as never,
+      source_urls: [...hedefler].slice(0, AZAMI_ADRES) as never,
       dedupe_key: "ic_baglanti_firsati",
       data: { oneri_sayisi: baglantiOnerileri.length, vurma_mesafesi: vurmaMesafesi } as never,
     });

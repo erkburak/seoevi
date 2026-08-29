@@ -35,6 +35,18 @@ const ICERIK_KALIPLARI = [
   /\/icerik\//i,
 ];
 
+/**
+ * Kalıp gerçekten ayırt edici mi?
+ *
+ * "/" gibi her yolda bulunan bir kalıp hiçbir şey söylemez; kabul
+ * edilirse tüm site tek türe düşer.
+ */
+function ayirtEdiciKalip(kalip: string | null | undefined): string | null {
+  const temiz = (kalip ?? "").trim();
+  if (temiz.length < 2 || temiz === "/") return null;
+  return temiz;
+}
+
 export function sayfaTuruBelirle(
   url: string,
   ayarlar?: { urunKalibi?: string | null; kategoriKalibi?: string | null },
@@ -48,8 +60,23 @@ export function sayfaTuruBelirle(
     yol = url;
   }
 
-  if (ayarlar?.urunKalibi && yol.includes(ayarlar.urunKalibi)) return "urun";
-  if (ayarlar?.kategoriKalibi && yol.includes(ayarlar.kategoriKalibi)) return "kategori";
+  /*
+   * Her yola uyan kalıp ayırt etmez.
+   *
+   * Düz adres yapısı kullanan sitelerde ("/vestel-buzdolabi") kullanıcı
+   * her iki kalıbı da "/" olarak tanımlayabiliyor. Bu durumda ilk kontrol
+   * her sayfayı ürün yapar ve kategori hiç bulunamaz; kalıp bilgi
+   * taşımadığı için yok sayılır ve sınıflandırma yapı sinyallerine bırakılır.
+   */
+  const urunKalibi = ayirtEdiciKalip(ayarlar?.urunKalibi);
+  const kategoriKalibi = ayirtEdiciKalip(ayarlar?.kategoriKalibi);
+
+  if (urunKalibi && kategoriKalibi && urunKalibi === kategoriKalibi) {
+    // İki kalıp aynıysa hangisinin hangisi olduğu söylenemez.
+  } else {
+    if (urunKalibi && yol.includes(urunKalibi)) return "urun";
+    if (kategoriKalibi && yol.includes(kategoriKalibi)) return "kategori";
+  }
 
   if (URUN_KALIPLARI.some((k) => k.test(yol))) return "urun";
   if (KATEGORI_KALIPLARI.some((k) => k.test(yol))) return "kategori";
@@ -86,4 +113,49 @@ export function kaliplariTahminEt(urller: string[]): {
   const kategoriKalibi = kategoriAdaylari.find((a) => (sayaclar.get(a) ?? 0) >= 2) ?? null;
 
   return { urunKalibi, kategoriKalibi };
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Yapı sinyalleriyle sınıflandırma                                    */
+/* ------------------------------------------------------------------ */
+
+export type YapiSinyali = {
+  url: string;
+  icLink: number | null;
+  kelimeSayisi: number | null;
+};
+
+/**
+ * Adres yapısı ayırt etmiyorsa sayfa türünü içerik yapısından çıkarır.
+ *
+ * Düz adresli sitelerde ("/vestel-buzdolabi" hem kategori hem ürün
+ * olabilir) adresten tür anlaşılmaz. Ama yapı anlaşılır: kategori sayfası
+ * altındaki ürünleri listeler, bu yüzden sayfa kalıbının (menü, altbilgi)
+ * getirdiği taban bağlantı sayısının belirgin biçimde ÜSTÜNDE bağlantı
+ * taşır. Ürün sayfası ise yalnızca kalıbı taşır.
+ *
+ * Taban, sitenin kendi dağılımından alınır; sabit bir eşik farklı
+ * temalarda yanlış sonuç verirdi.
+ */
+export function yapiylaKategorileriBul(sayfalar: YapiSinyali[]): Set<string> {
+  const linkler = sayfalar
+    .map((s) => s.icLink ?? 0)
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b);
+
+  if (linkler.length < 10) return new Set();
+
+  // Onda birlik dilim, sayfa kalıbının getirdiği taban bağlantı sayısıdır.
+  const taban = linkler[Math.floor(linkler.length * 0.1)];
+  if (taban <= 0) return new Set();
+
+  // Tabanın en az onda bir oranında üstü: listeleme yapan sayfalar.
+  const esik = Math.max(taban + 3, Math.round(taban * 1.1));
+
+  // Tüm sayfalar eşiğin üstündeyse ayrım yok demektir; hiçbiri seçilmez.
+  const adaylar = sayfalar.filter((s) => (s.icLink ?? 0) >= esik);
+  if (adaylar.length === 0 || adaylar.length > sayfalar.length * 0.6) return new Set();
+
+  return new Set(adaylar.map((s) => s.url));
 }
