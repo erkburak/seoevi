@@ -34,6 +34,8 @@ const VARSAYILAN_SURELER: Record<string, number> = {
   merchant: 259_200, // 3 gün
   content_analysis: 259_200, // 3 gün
   locations: 2_592_000, // 30 gün — neredeyse hiç değişmez
+  // Çağrı başına 0,10 dolar; yapay zekâ cevapları da günlük değişmez.
+  ai_gorunurluk: 2_592_000, // 30 gün
 };
 
 /**

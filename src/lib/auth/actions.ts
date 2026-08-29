@@ -151,8 +151,21 @@ export async function sifreSifirlamaGonder(_onceki: FormDurumu, veri: FormData):
   }
 
   const supabase = await sunucuIstemcisi();
+
+  /*
+   * Dönüş adresi elle birleştirilmez.
+   *
+   * Sorgu değerindeki eğik çizgi kaçışsız gönderildiğinde
+   * ("?devam=/sifre-yenile") sağlayıcının izin listesi eşleşmesi
+   * bozulabiliyor; bu durumda dönüş adresi sessizce Site URL'e düşer ve
+   * kullanıcı şifre ekranı yerine ana sayfaya atılır. Google akışı
+   * URLSearchParams kullandığı için ("%2F...") aynı sorunu yaşamıyordu.
+   */
+  const donusAdresi = new URL("/auth/callback", SITE.url);
+  donusAdresi.searchParams.set("devam", "/sifre-yenile");
+
   const { error } = await supabase.auth.resetPasswordForEmail(sonuc.data.eposta, {
-    redirectTo: `${SITE.url}/auth/callback?devam=/sifre-yenile`,
+    redirectTo: donusAdresi.toString(),
   });
 
   if (error) {

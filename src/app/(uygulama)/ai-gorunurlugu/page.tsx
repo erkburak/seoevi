@@ -1,84 +1,56 @@
-import { Bot } from "lucide-react";
+import { Bot, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 
+import { AiTakipListesi } from "@/components/app/ai-takip";
 import { ModulAnaliziButonu } from "@/components/app/modul-analizi";
 import { PaketUyarisi } from "@/components/app/paket-uyarisi";
 import { SayfaBasligi } from "@/components/app/sayfa-basligi";
-import { CizgiGrafik } from "@/components/charts";
 import { Rozet } from "@/components/ui/badge";
 import { BosDurum } from "@/components/ui/feedback";
 import { OzetDegeri } from "@/components/ui/metric";
-import { SkorCubugu, SkorHalkasi } from "@/components/ui/score";
 import { BolumBasligi } from "@/components/ui/surface";
 import { Ipucu } from "@/components/ui/tooltip";
+import { AI_KAYNAGI, aiGorunurlukOzeti } from "@/lib/analiz/ai-gorunurluk";
 import { projeBaglami } from "@/lib/projects";
 import { ozellikVarMi } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
-import { kirp, sayi, tarih } from "@/lib/utils";
-import type { AiBahsi, AiGorunurlugu } from "@/types/database";
+import { kirp, kisaSayi, sayi } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "AI Görünürlüğü",
   robots: { index: false, follow: false },
 };
 
-const AY_KISA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
-
-const KIRILIM_ACIKLAMASI: Record<string, string> = {
-  brand_visibility:
-    "Markanızın web genelinde ne sıklıkta ve kaç farklı kaynakta anıldığı. Yapay zekâ cevapları bu kaynaklardan beslenir.",
-  content_trust:
-    "Yapısal veri kullanımı ve öne çıkan snippet kazanımlarınız. İçeriğinizin makine tarafından güvenle okunabilirliğini gösterir.",
-  topic_authority: "Konunuzdaki sıralama gücünüz ve dış bağlantı otoriteniz.",
-  product_visibility: "Ürünlerinizin alışveriş sonuçlarında görünme oranı.",
-  question_coverage: "Kullanıcıların sorduğu soruların kaçına sizin sayfalarınızın cevap verdiği.",
-};
-
 export default async function AiGorunurluguSayfasi() {
   const { kullanici, proje } = await projeBaglami();
-  const izinli = await ozellikVarMi(kullanici.id, "ai_gorunurlugu");
   const supabase = await sunucuIstemcisi();
 
-  const [{ data: gecmisVerisi }, { data: bahisVerisi }, { data: calisanIs }] = await Promise.all([
-    supabase
-      .from("ai_visibility")
-      .select("*")
-      .eq("project_id", proje.id)
-      .order("created_at", { ascending: false })
-      .limit(12),
-    supabase
-      .from("ai_mentions")
-      .select("*")
-      .eq("project_id", proje.id)
-      .order("created_at", { ascending: false })
-      .limit(20),
+  const [izinli, ozet, { data: calisanIs }] = await Promise.all([
+    ozellikVarMi(kullanici.id, "ai_gorunurlugu"),
+    aiGorunurlukOzeti(proje),
     supabase
       .from("audit_jobs")
       .select("id")
       .eq("project_id", proje.id)
-      .eq("job_type", "ai")
       .in("status", ["bekliyor", "isleniyor", "yeniden_deneniyor"])
       .limit(1)
       .maybeSingle(),
   ]);
 
-  const gecmis = (gecmisVerisi ?? []) as AiGorunurlugu[];
-  const bahisler = (bahisVerisi ?? []) as AiBahsi[];
-  const guncel = gecmis[0] ?? null;
-
   const baslik = (
     <SayfaBasligi
       baslik="AI Görünürlüğü"
-      aciklama="Markanızın ve ürünlerinizin yapay zekâ destekli arama cevaplarındaki görünürlüğü."
+      aciklama="Biri yapay zekâya sorduğunda cevapta siz mi görünüyorsunuz, rakibiniz mi? Ölçüm, yapay zekânın gerçekte verdiği cevaplardan yapılır."
       aksiyon={
         izinli ? (
           <ModulAnaliziButonu
             projeId={proje.id}
             tur="ai"
-            etiket="AI Analizini Çalıştır"
+            etiket="Görünürlüğü Ölç"
+            gorunum="ikincil"
             calisanIsId={calisanIs?.id ?? null}
           />
-        ) : null
+        ) : undefined
       }
     />
   );
@@ -89,157 +61,187 @@ export default async function AiGorunurluguSayfasi() {
         {baslik}
         <PaketUyarisi
           ozellik="AI görünürlüğü"
-          aciklama="Marka bahsedilmeleri, soru kapsaması ve konu otoritesi ölçümü Profesyonel paketten itibaren kullanılabilir."
+          aciklama="Yapay zekâ cevaplarında görünüp görünmediğinizi, hangi sorularda çıktığınızı ve yerinize hangi sitelerin gösterildiğini ölçer. Bu veri sağlayıcıdan cevap başına alındığı için üst paketlerde sunulur."
         />
       </>
     );
   }
 
-  if (!guncel) {
+  if (!ozet.olculdu) {
     return (
       <>
         {baslik}
         <BosDurum
           ikon={Bot}
-          baslik="Henüz AI görünürlüğü ölçülmedi."
-          aciklama="Analizi çalıştırın; markanızın web genelindeki bahsedilmelerini, yapısal veri kapsamınızı ve soru kapsamanızı ölçelim."
-          aksiyon={
-            <ModulAnaliziButonu
-              projeId={proje.id}
-              tur="ai"
-              etiket="AI Analizini Çalıştır"
-              calisanIsId={calisanIs?.id ?? null}
-            />
-          }
+          baslik="Henüz ölçüm yapılmadı."
+          aciklama={`${AI_KAYNAGI} cevaplarında alan adınızın geçtiği yerleri tarıyoruz. "Görünürlüğü Ölç" ile başlatabilirsiniz.`}
         />
       </>
     );
   }
 
-  const kirilim = (guncel.breakdown ?? {}) as {
-    marka_bahsi?: number;
-    bahseden_alan_adi?: number;
-    snippet_sayisi?: number;
-    cevaplanan_soru?: number;
-    toplam_soru?: number;
-    schema_kapsamasi?: number;
-  };
-
-  const grafik = [...gecmis]
-    .reverse()
-    .map((g) => {
-      const d = new Date(g.created_at);
-      return { etiket: `${d.getDate()} ${AY_KISA[d.getMonth()]}`, deger: g.score ?? 0 };
-    });
+  const rakipler = ozet.kaynaklar.filter((k) => !k.bizMiyiz);
+  const biz = ozet.kaynaklar.find((k) => k.bizMiyiz);
 
   return (
     <>
       {baslik}
 
       <div className="space-y-9">
-        <section className="grid gap-4 lg:grid-cols-[300px_1fr]">
-          <div className="glass rounded-[16px] p-5">
-            <div className="flex items-center gap-5">
-              <SkorHalkasi skor={guncel.score} boyut={104} etiket="AI skoru" />
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-ink-900">AI görünürlüğü</p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-500">
-                  Beş sinyalin ağırlıklı ortalaması. Son ölçüm {tarih(guncel.created_at)}.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[14px] border border-line bg-white p-5">
-            <div className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2">
-              {(
-                [
-                  ["Marka görünürlüğü", guncel.brand_visibility, "brand_visibility"],
-                  ["İçerik güvenilirliği", guncel.content_trust, "content_trust"],
-                  ["Konu otoritesi", guncel.topic_authority, "topic_authority"],
-                  ["Ürün görünürlüğü", guncel.product_visibility, "product_visibility"],
-                  ["Soru kapsama oranı", guncel.question_coverage, "question_coverage"],
-                ] as [string, number | null, keyof typeof KIRILIM_ACIKLAMASI][]
-              ).map(([etiket, deger, anahtar]) =>
-                deger === null ? (
-                  /* Ölçülemeyen sinyal sıfır gibi gösterilmez; aradaki fark
-                     kullanıcı için anlamlıdır. */
-                  <div key={etiket} className="flex items-baseline justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-[13px] text-ink-500">
-                      {etiket}
-                      <Ipucu metin={KIRILIM_ACIKLAMASI[anahtar]} />
-                    </span>
-                    <span className="text-[12.5px] text-ink-300">ölçülemedi</span>
-                  </div>
-                ) : (
-                  <SkorCubugu
-                    key={etiket}
-                    etiket={etiket}
-                    skor={deger}
-                    ipucu={<Ipucu metin={KIRILIM_ACIKLAMASI[anahtar]} />}
-                  />
-                ),
-              )}
-            </div>
-          </div>
+        {/* --- Özet --- */}
+        <section className="grid grid-cols-2 gap-6 rounded-[14px] border border-line bg-white p-5 sm:grid-cols-4">
+          <OzetDegeri
+            etiket="Göründüğünüz cevap"
+            deger={sayi(ozet.bahis)}
+            ipucu="Alan adınızın kaynak olarak gösterildiği yapay zekâ cevabı sayısı."
+          />
+          <OzetDegeri
+            etiket="İncelenen cevap"
+            deger={sayi(ozet.cevaplar.length)}
+          />
+          <OzetDegeri
+            etiket="Aylık AI araması"
+            deger={kisaSayi(ozet.aiAramaHacmi)}
+            ipucu="Bu cevapların karşılık geldiği aylık arama hacmi."
+          />
+          <OzetDegeri
+            etiket="Rakip site"
+            deger={sayi(rakipler.length)}
+            ipucu="Aynı cevaplarda gösterilen diğer siteler."
+          />
         </section>
 
+        {/* --- Takip edilen sorular --- */}
         <section>
-          <BolumBasligi baslik="Ölçülen sinyaller" />
-          <div className="mt-4 grid grid-cols-2 gap-6 rounded-[14px] border border-line bg-white p-5 sm:grid-cols-3 lg:grid-cols-5">
-            <OzetDegeri
-              etiket="Marka bahsi"
-              deger={sayi(kirilim.marka_bahsi ?? 0)}
-              ipucu="Marka adınızın web genelinde geçtiği içerik sayısı."
-            />
-            <OzetDegeri etiket="Bahseden kaynak" deger={sayi(kirilim.bahseden_alan_adi ?? 0)} />
-            <OzetDegeri
-              etiket="Öne çıkan snippet"
-              deger={sayi(kirilim.snippet_sayisi ?? 0)}
-              ipucu="Kazandığınız öne çıkan snippet ve cevap kutusu sayısı."
-            />
-            <OzetDegeri
-              etiket="Cevaplanan soru"
-              deger={`${sayi(kirilim.cevaplanan_soru ?? 0)} / ${sayi(kirilim.toplam_soru ?? 0)}`}
-            />
-            <OzetDegeri
-              etiket="Yapısal veri kapsaması"
-              deger={`%${kirilim.schema_kapsamasi ?? 0}`}
-              ipucu="Schema işaretlemesi bulunan sayfa oranı."
+          <BolumBasligi
+            baslik="Takip ettiğiniz sorular"
+            aciklama="Müşterilerinizin yapay zekâya soracağını düşündüğünüz soruları girin; her ölçümde o cevaplarda görünüp görünmediğinizi raporlarız."
+          />
+          <div className="mt-4">
+            <AiTakipListesi
+              projeId={proje.id}
+              takipler={ozet.takipler}
+              limit={ozet.takipLimiti}
             />
           </div>
         </section>
 
-        {grafik.length >= 2 ? (
-          <section>
-            <BolumBasligi baslik="Skor değişimi" />
-            <div className="mt-4 rounded-[14px] border border-line bg-white p-4">
-              <CizgiGrafik veri={grafik} yukseklik={200} birim="puan" />
-            </div>
-          </section>
-        ) : null}
-
-        {bahisler.length ? (
+        {/* --- Yerinize kim gösteriliyor --- */}
+        {rakipler.length ? (
           <section>
             <BolumBasligi
-              baslik="Marka bahsedilmeleri"
-              aciklama="Markanızın geçtiği içerikler; yapay zekâ cevaplarının beslendiği kaynaklar."
+              baslik="Bu cevaplarda kim gösteriliyor?"
+              aciklama="Yapay zekâ cevap verirken hangi siteleri kaynak gösteriyor. Üst sıradakiler, sizin yerinize okunan sitelerdir."
+              sag={
+                <Ipucu metin="Sıralama, incelenen cevaplarda kaç kez kaynak gösterildiklerine göredir." />
+              }
             />
-            <ul className="mt-4 divide-y divide-line rounded-[14px] border border-line bg-white">
-              {bahisler.map((b) => (
-                <li key={b.id} className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[13px] font-medium text-ink-900">{b.source ?? "—"}</span>
-                    <Rozet>{b.mention_type === "marka" ? "Marka" : b.mention_type === "urun" ? "Ürün" : "İçerik"}</Rozet>
+
+            <ul className="mt-4 space-y-2">
+              {ozet.kaynaklar.map((k) => (
+                <li
+                  key={k.alanAdi}
+                  className={
+                    k.bizMiyiz
+                      ? "flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-positive/25 bg-positive-soft/40 px-4 py-3"
+                      : "flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-line bg-white px-4 py-3"
+                  }
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="truncate text-[13.5px] font-medium text-ink-900">
+                      {k.alanAdi}
+                    </span>
+                    {k.bizMiyiz ? <Rozet ton="olumlu">siz</Rozet> : null}
                   </div>
-                  {b.context ? (
-                    <p className="mt-1 text-[13px] leading-relaxed text-ink-500">{kirp(b.context, 180)}</p>
-                  ) : null}
+                  <span className="tabular shrink-0 text-[13px] text-ink-500">
+                    {sayi(k.bahis)} cevapta
+                  </span>
                 </li>
               ))}
             </ul>
+
+            {!biz ? (
+              <p className="mt-3 text-[13px] leading-relaxed text-ink-500">
+                Bu cevapların hiçbirinde siteniz kaynak olarak gösterilmiyor. Yapay zekâ,
+                cevaplarını yukarıdaki sitelerden kuruyor.
+              </p>
+            ) : null}
           </section>
         ) : null}
+
+        {/* --- Gerçek cevaplar --- */}
+        <section>
+          <BolumBasligi
+            baslik="Yapay zekânın verdiği cevaplar"
+            aciklama="Kullanıcıların sorduğu gerçek sorular ve alınan cevaplar."
+          />
+
+          <ul className="mt-4 space-y-2">
+            {ozet.cevaplar.slice(0, 20).map((c) => (
+              <li key={`${c.soru}-${c.modelAdi}`} className="rounded-[14px] border border-line bg-white p-4">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {c.bizdeVarMi ? (
+                    <Rozet ton="olumlu">Siz gösteriliyorsunuz</Rozet>
+                  ) : (
+                    <Rozet ton="notr">Siz yoksunuz</Rozet>
+                  )}
+                  {c.aiAramaHacmi > 0 ? (
+                    <Rozet>{kisaSayi(c.aiAramaHacmi)} aylık arama</Rozet>
+                  ) : null}
+                  {c.webAramali === true ? <Rozet ton="bilgi">web aramalı</Rozet> : null}
+                </div>
+
+                <p className="mt-2 text-[14.5px] font-medium text-ink-900">{c.soru}</p>
+
+                {c.cevap ? (
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-ink-600">
+                    {kirp(c.cevap.replace(/\[!?\[?[^\]]*\]\([^)]*\)/g, "").replace(/\s+/g, " "), 320)}
+                  </p>
+                ) : null}
+
+                {c.kaynaklar.length ? (
+                  <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-line pt-2.5">
+                    {c.kaynaklar.slice(0, 8).map((k) => (
+                      <span
+                        key={k}
+                        className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-muted px-2 py-0.5 text-[12px] text-ink-600"
+                      >
+                        <ExternalLink className="size-2.5 opacity-50" aria-hidden />
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* --- Kapsam --- */}
+        <section className="rounded-[14px] border border-line bg-surface-muted/50 p-5">
+          <h2 className="text-[14.5px] font-semibold text-ink-900">Bu ölçüm neyi kapsıyor?</h2>
+          <ul className="mt-3 space-y-2 text-[13.5px] leading-relaxed text-ink-600">
+            <li>
+              <strong className="font-medium text-ink-900">Veri kaynağı {AI_KAYNAGI}.</strong>{" "}
+              Türkiye&apos;de yapay zekâ cevaplarının büyük çoğunluğu buradan görülüyor. ChatGPT ve
+              Perplexity ayrı ayrı ölçülmüyor; ölçtüğümüzü olduğu gibi söylüyoruz.
+            </li>
+            <li>
+              <strong className="font-medium text-ink-900">Gerçek cevaplar okunuyor.</strong> Bir
+              modele soru sorup ne diyeceğine bakmıyoruz; kullanıcıların gerçekte aldığı cevaplar
+              ve o cevaplarda gösterilen kaynaklar ölçülüyor.
+            </li>
+            <li>
+              <strong className="font-medium text-ink-900">Görünmek kaynak gösterilmektir.</strong>{" "}
+              Yapay zekâ cevabını sitelerden kurar. Cevapta kaynak olarak siz varsanız trafik ve
+              güven size gelir; yoksa rakibinize.
+            </li>
+            <li>
+              <strong className="font-medium text-ink-900">Ölçüm aylık yenilenir.</strong> Bu veri
+              sağlayıcıdan cevap başına alındığı için her sayfa açılışında yeniden sorgulanmaz.
+            </li>
+          </ul>
+        </section>
       </div>
     </>
   );

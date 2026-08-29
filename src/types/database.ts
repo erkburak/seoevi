@@ -34,6 +34,8 @@ export type PlanLimitleri = {
   geri_baglanti: boolean;
   merchant: boolean;
   ai_gorunurlugu: boolean;
+  /** Takip edilebilecek yapay zekâ sorusu sayısı. */
+  ai_takip_sorusu: number;
   /** İçeriğini tarayıcıda üreten sitelerde sayfaları JavaScript ile yeniden ölçme hakkı. */
   js_olcum: boolean;
   /** JavaScript ile yeniden ölçülecek azami sayfa sayısı. */

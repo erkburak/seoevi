@@ -21,6 +21,7 @@ export const LIMIT_ADLARI: Record<keyof PlanLimitleri, string> = {
   geri_baglanti: "Geri bağlantı analizi",
   merchant: "Merchant analizi",
   ai_gorunurlugu: "AI görünürlüğü",
+  ai_takip_sorusu: "Takip edilen AI sorusu",
   js_olcum: "JavaScript ile ölçüm",
   js_olcum_sayfa: "JavaScript ile ölçülen sayfa",
 };
