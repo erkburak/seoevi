@@ -2,6 +2,8 @@ import { Check } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { BaglantiliMetin } from "@/components/marketing/baglantili-metin";
+
 import { Icerik, PazarlamaKabugu, SayfaGirisi } from "@/components/marketing/sayfa-kabugu";
 import { WhatsappButonu } from "@/components/marketing/whatsapp";
 import { Buton } from "@/components/ui/button";
@@ -53,6 +55,13 @@ export async function pazarlamaMetadata(
 }
 
 export function PazarlamaSayfasi({ icerik }: { icerik: PazarlamaSayfasiIcerigi }) {
+  /*
+   * İç bağlantılar sayfa boyunca tek sayaçla uygulanır: aynı hedefe
+   * ikinci kez bağlanılmaz, sayfa kendine hiç bağlanmaz.
+   */
+  const mevcutYol = `/${icerik.slug}`;
+  const kullanilanLinkler = new Set<string>();
+
   const yapisalVeri = {
     "@context": "https://schema.org",
     "@graph": [
@@ -95,7 +104,12 @@ export function PazarlamaSayfasi({ icerik }: { icerik: PazarlamaSayfasiIcerigi }
         {/* --- Giriş --- */}
         <div className="space-y-5 text-[15px] leading-[1.8] text-ink-600">
           {icerik.giris.map((p) => (
-            <p key={p.slice(0, 40)}>{p}</p>
+            <BaglantiliMetin
+              key={p.slice(0, 40)}
+              metin={p}
+              mevcutYol={mevcutYol}
+              kullanilan={kullanilanLinkler}
+            />
           ))}
         </div>
 
@@ -146,7 +160,13 @@ export function PazarlamaSayfasi({ icerik }: { icerik: PazarlamaSayfasiIcerigi }
             {icerik.sss.map((s) => (
               <div key={s.soru} className="py-5">
                 <dt className="text-[15px] font-medium text-ink-900">{s.soru}</dt>
-                <dd className="mt-2 text-[14px] leading-relaxed text-ink-500">{s.cevap}</dd>
+                <BaglantiliMetin
+                  etiket="dd"
+                  metin={s.cevap}
+                  mevcutYol={mevcutYol}
+                  kullanilan={kullanilanLinkler}
+                  className="mt-2 text-[14px] leading-relaxed text-ink-500"
+                />
               </div>
             ))}
           </dl>

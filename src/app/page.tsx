@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import {
   AiBolumu,
   AksiyonBolumu,
+  KesifBolumu,
   EticaretBolumu,
   GuvenSeridi,
   KelimeFirsatlariBolumu,
@@ -14,6 +15,7 @@ import {
   SssBolumu,
   SSS_LISTESI,
 } from "@/components/marketing/bolumler";
+import { varsayilanUstVeri } from "@/config/sayfa-listesi";
 import { sayfaUstVerisi } from "@/lib/marka";
 import { PazarlamaAltbilgisi } from "@/components/marketing/footer";
 import { PazarlamaBasligi } from "@/components/marketing/header";
@@ -27,10 +29,20 @@ import { sunucuIstemcisi } from "@/lib/supabase/server";
 export async function generateMetadata(): Promise<Metadata> {
   // Yetkili alanından özelleştirilmişse o değer kullanılır.
   const ustVeri = await sayfaUstVerisi("/");
+
+  /*
+   * Varsayılan başlık ve açıklama tek yerden gelir.
+   *
+   * Burada ayrı bir sabit tutulduğunda yetkili panelinde gösterilen
+   * "varsayılan" ile sitede sunulan değer birbirinden ayrı düşüyordu;
+   * panelden alan boşaltıldığında beklenmedik bir metne dönülüyordu.
+   */
+  const varsayilan = varsayilanUstVeri("/");
+
   const temel: Metadata = {
-  title: "E-ticaret SEO Platformu — Google ve AI aramalarında büyüyün",
-  description: SITE.description,
-  alternates: { canonical: SITE.url },
+    title: varsayilan?.title,
+    description: varsayilan?.description ?? SITE.description,
+    alternates: { canonical: SITE.url },
   };
 
   return {
@@ -117,6 +129,7 @@ export default async function AnaSayfa() {
         <AiBolumu />
         <AksiyonBolumu />
         <OzelliklerBolumu />
+        <KesifBolumu />
 
         <section id="fiyatlandirma" className="bg-surface-muted">
           <div className="mx-auto max-w-6xl px-5 py-20 lg:px-8 lg:py-24">

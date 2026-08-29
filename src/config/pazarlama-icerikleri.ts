@@ -18,6 +18,7 @@ export const SEO_ARACI: PazarlamaSayfasiIcerigi = {
     "Çoğu SEO aracı size yüzlerce satır veri gösterir ve ne yapacağınıza kendiniz karar vermenizi bekler. Elinizde bir tablo olur ama hangi işin önce yapılması gerektiği belirsiz kalır.",
     "SEO Evi farklı bir yol izler: sitenizi tarar, arama sonuçlarındaki yerinizi ölçer, rakiplerinizle karşılaştırır ve sonucu tek bir soruya indirger — bu hafta neyi düzeltirsem en çok kazanırım?",
     "Platform e-ticaret için tasarlandı. Ürün ve kategori sayfaları, Google Alışveriş verileri ve yapısal işaretleme kontrolleri standart bir SEO aracında bulamayacağınız derinlikte ele alınır.",
+    "Bu sayfa aracın kendisini anlatıyor; e-ticaret SEO'nun bütününe, hangi parçanın hangi işe yaradığına bakmak isterseniz oradan başlayabilirsiniz.",
   ],
   ozellikler: [
     {
@@ -90,7 +91,8 @@ export const SEO_ARACI: PazarlamaSayfasiIcerigi = {
     },
   ],
   ilgiliSayfalar: [
-    { etiket: "E-ticaret SEO", href: "/e-ticaret-seo" },
+    { etiket: "E-ticaret SEO", href: "/" },
+    { etiket: "Ürün sayfası SEO", href: "/e-ticaret-seo" },
     { etiket: "Teknik SEO Analizi", href: "/teknik-seo-analizi" },
     { etiket: "Rakip SEO Analizi", href: "/rakip-seo-analizi" },
     { etiket: "Ücretsiz SEO Analizi", href: "/ucretsiz-seo-analizi" },
@@ -99,13 +101,20 @@ export const SEO_ARACI: PazarlamaSayfasiIcerigi = {
 
 export const ETICARET_SEO: PazarlamaSayfasiIcerigi = {
   slug: "e-ticaret-seo",
-  ustBaslik: "E-ticaret SEO",
-  baslik: "E-ticaret SEO: ürünleriniz neden bulunmuyor?",
+  ustBaslik: "Ürün sayfası SEO",
+  /*
+   * Ana sayfa "e-ticaret SEO" kelimesini hedefliyor. Bu sayfa aynı
+   * kelimeye kurulursa ikisi birbiriyle yarışır ve Google hangisini öne
+   * çıkaracağını bilemez — ürünün kendi tespit ettiği "sayfa çakışması"
+   * sorunu. Bu yüzden burası daha özgül bir ifadeye odaklanır:
+   * ürün ve kategori sayfası SEO'su.
+   */
+  baslik: "Ürün sayfası SEO: ürünleriniz neden bulunmuyor?",
   aciklama:
     "Binlerce ürününüz var ama hangisinin Google'da sorun yaşadığını bilmiyorsanız, SEO çalışması tahmine dönüşür. SEO Evi her ürün ve kategori sayfasını ayrı ayrı puanlar.",
-  metaBaslik: "E-ticaret SEO — Ürün ve kategori sayfalarınızı analiz edin",
+  metaBaslik: "Ürün Sayfası SEO — Ürün ve Kategori Optimizasyonu | SEO Evi",
   metaAciklama:
-    "E-ticaret SEO analizi: ürün sayfası skorları, kategori optimizasyonu, yapısal veri ve Google Alışveriş kontrolleri. Türkçe SEO platformu.",
+    "Ürün sayfası SEO rehberi ve analizi: ürün skorları, eksik alanlar, kategori optimizasyonu, yapısal veri ve Google Alışveriş kontrolleri. Her ürün ayrı puanlanır.",
   giris: [
     "E-ticaret SEO'su içerik sitelerinin SEO'sundan farklı çalışır. Bir blog yazısında başlık ve içerik yeterken, bir ürün sayfasında fiyat, stok durumu, GTIN, marka bilgisi ve yapısal işaretleme de arama sonuçlarındaki yerinizi doğrudan etkiler.",
     "Genel amaçlı SEO araçları ürün sayfasını sıradan bir sayfa gibi değerlendirir. Sonuç olarak \"meta açıklama eksik\" gibi genel uyarılar alırsınız ama asıl kaybınızın nerede olduğunu göremezsiniz.",
@@ -182,6 +191,7 @@ export const ETICARET_SEO: PazarlamaSayfasiIcerigi = {
     },
   ],
   ilgiliSayfalar: [
+    { etiket: "E-ticaret SEO", href: "/" },
     { etiket: "Google Alışveriş SEO", href: "/google-shopping-seo" },
     { etiket: "SEO Aracı", href: "/seo-araci" },
     { etiket: "Teknik SEO Analizi", href: "/teknik-seo-analizi" },
@@ -202,6 +212,7 @@ export const RAKIP_SEO_ANALIZI: PazarlamaSayfasiIcerigi = {
     "SEO'da en hızlı ilerleme genellikle sıfırdan bir şey icat ederek değil, rakibinizin zaten kanıtladığı fırsatları görerek elde edilir. Rakibiniz bir kelimede ilk sıradaysa o kelimenin gerçekten satış getirdiğini biliyorsunuz demektir.",
     "SEO Evi rakip alan adlarını sizin alan adınızla yan yana koyar. Ortak kelimeler, yalnızca onların sıralandığı kelimeler ve yalnızca sizin sıralandığınız kelimeler ayrı ayrı listelenir.",
     "En değerli kısım ise \"rakibin açığı\": rakibinizin sıralandığı ancak rekabetin düşük olduğu, sizin de kısa sürede girebileceğiniz kelimeler.",
+    "Rakip analizi tek başına yeterli değil: bulduğunuz açığı kapatmak teknik SEO, ürün sayfası SEO ve içerik tarafında iş gerektirir. E-ticaret SEO bu parçaların birlikte yürümesidir.",
   ],
   ozellikler: [
     {
@@ -275,9 +286,10 @@ export const RAKIP_SEO_ANALIZI: PazarlamaSayfasiIcerigi = {
     },
   ],
   ilgiliSayfalar: [
+    { etiket: "E-ticaret SEO", href: "/" },
     { etiket: "Anahtar Kelime Araştırma Aracı", href: "/anahtar-kelime-arastirma-araci" },
     { etiket: "SEO Aracı", href: "/seo-araci" },
-    { etiket: "E-ticaret SEO", href: "/e-ticaret-seo" },
+    { etiket: "Ürün sayfası SEO", href: "/e-ticaret-seo" },
   ],
 };
 
@@ -294,6 +306,7 @@ export const GOOGLE_SHOPPING_SEO: PazarlamaSayfasiIcerigi = {
     "Google Alışveriş sonuçları artık birçok ürün aramasında organik sonuçların üzerinde yer alıyor. Bu alanda görünmemek, arama hacminin önemli bir bölümünü baştan kaybetmek anlamına geliyor.",
     "Görünürlük büyük ölçüde ürün verinizin eksiksizliğine bağlı. GTIN, MPN, marka, fiyat, stok durumu ve yapısal işaretleme doğru şekilde verilmediğinde ürününüz eşleştirilemiyor.",
     "SEO Evi ürünlerinizi bu alanlar üzerinden tarar ve 100 üzerinden bir Merchant Sağlık Skoru üretir. Hangi üründe hangi alanın eksik olduğunu tek tek görürsünüz.",
+    "Alışveriş görünürlüğü, e-ticaret SEO'nun yalnızca bir parçası. Organik sonuçlardaki sıranız ve ürün sayfalarınızın kalitesi de aynı anda çalışmalı.",
   ],
   ozellikler: [
     {
@@ -360,7 +373,8 @@ export const GOOGLE_SHOPPING_SEO: PazarlamaSayfasiIcerigi = {
     },
   ],
   ilgiliSayfalar: [
-    { etiket: "E-ticaret SEO", href: "/e-ticaret-seo" },
+    { etiket: "E-ticaret SEO", href: "/" },
+    { etiket: "Ürün sayfası SEO", href: "/e-ticaret-seo" },
     { etiket: "SEO Aracı", href: "/seo-araci" },
     { etiket: "AI SEO", href: "/ai-seo" },
   ],
@@ -379,6 +393,7 @@ export const AI_SEO: PazarlamaSayfasiIcerigi = {
     "Kullanıcılar giderek daha sık, bir liste yerine doğrudan cevap veren arama deneyimlerini kullanıyor. Bu cevaplar web genelindeki içeriklerden besleniyor ve markanız orada geçmiyorsa, arama sonucunda hiç var olmamış gibi oluyorsunuz.",
     "Bu yeni alan klasik sıralama takibiyle ölçülemiyor. Önemli olan kaçıncı sırada olduğunuz değil, markanızın ne kadar çok güvenilir kaynakta anıldığı ve içeriğinizin makine tarafından ne kadar net okunabildiği.",
     "SEO Evi bu sinyalleri ölçerek 100 üzerinden bir AI Görünürlüğü skoru üretir ve skoru yükseltmek için ne yapmanız gerektiğini söyler.",
+    "Yapay zekâ cevapları arama sonuçlarının üstüne yerleşti ama altındaki mantık değişmedi: kaynak gösterilen siteler, e-ticaret SEO temelleri sağlam olan siteler oluyor.",
   ],
   ozellikler: [
     {
@@ -445,8 +460,9 @@ export const AI_SEO: PazarlamaSayfasiIcerigi = {
     },
   ],
   ilgiliSayfalar: [
+    { etiket: "E-ticaret SEO", href: "/" },
     { etiket: "SEO Aracı", href: "/seo-araci" },
-    { etiket: "E-ticaret SEO", href: "/e-ticaret-seo" },
+    { etiket: "Ürün sayfası SEO", href: "/e-ticaret-seo" },
     { etiket: "Google Alışveriş SEO", href: "/google-shopping-seo" },
   ],
 };
@@ -464,6 +480,7 @@ export const TEKNIK_SEO_ANALIZI: PazarlamaSayfasiIcerigi = {
     "İçerik ne kadar iyi olursa olsun, arama motoru sayfanıza ulaşamıyor veya sayfayı indeksleyemiyorsa görünürlük oluşmaz. Teknik SEO, diğer tüm çalışmaların üzerine kurulduğu zemindir.",
     "Teknik sorunların çoğu gözle fark edilmez: yanlış canonical etiketi, kazara eklenmiş bir noindex, derinlerde kalmış ürün sayfaları veya yinelenen başlıklar.",
     "SEO Evi sitenizin sayfalarını tarar, bulduğu sorunları önem derecesine göre sınıflandırır ve her biri için ne yapmanız gerektiğini açıklar.",
+    "Teknik sorunlar düzeldiğinde geriye asıl iş kalır: doğru kelimeleri hedeflemek ve ürün sayfalarını güçlendirmek. E-ticaret SEO teknikle başlar ama orada bitmez.",
   ],
   ozellikler: [
     {
@@ -530,8 +547,9 @@ export const TEKNIK_SEO_ANALIZI: PazarlamaSayfasiIcerigi = {
     },
   ],
   ilgiliSayfalar: [
+    { etiket: "E-ticaret SEO", href: "/" },
     { etiket: "SEO Aracı", href: "/seo-araci" },
-    { etiket: "E-ticaret SEO", href: "/e-ticaret-seo" },
+    { etiket: "Ürün sayfası SEO", href: "/e-ticaret-seo" },
     { etiket: "Ücretsiz SEO Analizi", href: "/ucretsiz-seo-analizi" },
   ],
 };
@@ -549,6 +567,7 @@ export const ANAHTAR_KELIME_ARACI: PazarlamaSayfasiIcerigi = {
     "Anahtar kelime araştırmasında en sık yapılan hata, yalnızca arama hacmine bakmaktır. Yüksek hacimli bir kelime çoğu zaman en zorlu rekabete sahiptir ve aylarca uğraşmanıza rağmen ilk sayfaya giremezsiniz.",
     "Doğru soru şu: hangi kelimede, bugünkü gücümle, makul bir sürede sıralanabilirim ve bu bana satış getirir mi?",
     "SEO Evi her kelimeye 0-100 arası bir fırsat skoru verir. Arama hacmi, rekabet, mevcut sıralamanız, SERP yapısı ve ticari niyet birlikte değerlendirilir; liste doğrudan önceliğe göre sıralanır.",
+    "Doğru kelimeyi seçmek işin yarısı; o kelimede sıralanacak sayfanın hazır olması diğer yarısı. E-ticaret SEO ikisini birlikte yürütmeyi gerektirir.",
   ],
   ozellikler: [
     {
@@ -617,9 +636,10 @@ export const ANAHTAR_KELIME_ARACI: PazarlamaSayfasiIcerigi = {
     },
   ],
   ilgiliSayfalar: [
+    { etiket: "E-ticaret SEO", href: "/" },
     { etiket: "Rakip SEO Analizi", href: "/rakip-seo-analizi" },
     { etiket: "SEO Aracı", href: "/seo-araci" },
-    { etiket: "E-ticaret SEO", href: "/e-ticaret-seo" },
+    { etiket: "Ürün sayfası SEO", href: "/e-ticaret-seo" },
   ],
 };
 

@@ -1,3 +1,4 @@
+import { IlgiliSayfalar } from "@/components/marketing/ilgili-sayfalar";
 import type { Metadata } from "next";
 
 import { sayfaUstVerisi } from "@/lib/marka";
@@ -105,6 +106,13 @@ export default function UcretsizSeoAnaliziSayfasi() {
           </dl>
         </section>
       </Icerik>
+      <IlgiliSayfalar
+        ogeler={[
+            { etiket: "E-ticaret SEO", href: "/", aciklama: "Tek sayfa değil, sitenizin tamamı için kurulmuş platform." },
+            { etiket: "Teknik SEO analizi", href: "/teknik-seo-analizi", aciklama: "Sitenizin tamamındaki teknik sorunlar, önem sırasına dizili." },
+            { etiket: "Google sıra bulucu", href: "/google-sira-bulucu", aciklama: "Tek bir kelimede kaçıncı sırada olduğunuzu ölçün." },
+        ]}
+      />
     </PazarlamaKabugu>
   );
 }

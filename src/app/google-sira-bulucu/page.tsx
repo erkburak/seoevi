@@ -1,3 +1,4 @@
+import { IlgiliSayfalar } from "@/components/marketing/ilgili-sayfalar";
 import type { Metadata } from "next";
 
 import { sayfaUstVerisi } from "@/lib/marka";
@@ -130,6 +131,13 @@ export default function GoogleSiraBulucuSayfasi() {
           </dl>
         </section>
       </Icerik>
+      <IlgiliSayfalar
+        ogeler={[
+            { etiket: "E-ticaret SEO", href: "/", aciklama: "Tek kelime değil, tüm kelimelerinizi sürekli takip edin." },
+            { etiket: "Anahtar kelime araştırma aracı", href: "/anahtar-kelime-arastirma-araci", aciklama: "Hangi kelimede ne kadar fırsat var, fırsat skoruyla görün." },
+            { etiket: "Ücretsiz SEO analizi", href: "/ucretsiz-seo-analizi", aciklama: "Sayfanızın teknik durumunu kayıt olmadan kontrol edin." },
+        ]}
+      />
     </PazarlamaKabugu>
   );
 }

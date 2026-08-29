@@ -37,14 +37,22 @@ export function Hero() {
             Türkiye&apos;deki e-ticaret siteleri için geliştirildi
           </span>
 
+          {/*
+            Sayfanın hedef kelimesi "e-ticaret SEO". Başlık bu ifadeyle
+            başlar ama slogan gibi değil, cümlenin doğal parçası olarak:
+            kelimeyi doldurmak için yazılmış başlıklar hem okuyucuyu hem
+            arama motorunu kaybettirir.
+          */}
           <h1 className="mt-6 text-[34px] font-semibold leading-[1.1] tracking-[-0.03em] text-ink-900 sm:text-[52px]">
-            E-ticaret sitenizin
-            <br className="hidden sm:block" /> Google&apos;daki büyüme merkezini keşfedin.
+            E-ticaret SEO&apos;yu
+            <br className="hidden sm:block" /> tahminden çıkarın.
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-[16px] leading-relaxed text-ink-500">
-            SEO Evi; teknik SEO, anahtar kelimeler, rakipler, içerik, Merchant ve AI görünürlüğünü
-            tek bir platformda birleştirir.
+            SEO Evi, Türkiye&apos;deki e-ticaret siteleri için geliştirilmiş bir e-ticaret SEO
+            platformudur: teknik SEO, anahtar kelimeler, rakipler, ürün sayfaları, Google
+            Alışveriş ve yapay zekâ görünürlüğü tek ekranda birleşir — ve size veri yığını değil,
+            sıraya dizilmiş bir yapılacaklar listesi verir.
           </p>
 
           <form onSubmit={gonder} className="mx-auto mt-8 max-w-lg">

@@ -1,3 +1,4 @@
+import { IlgiliSayfalar } from "@/components/marketing/ilgili-sayfalar";
 import type { Metadata } from "next";
 
 import { sayfaUstVerisi } from "@/lib/marka";
@@ -154,6 +155,13 @@ export default async function FiyatlandirmaSayfasi() {
           </div>
         </Icerik>
       </section>
+      <IlgiliSayfalar
+        ogeler={[
+            { etiket: "E-ticaret SEO", href: "/", aciklama: "Paketlerin arkasındaki platformun ne yaptığı." },
+            { etiket: "Ürün sayfası SEO", href: "/e-ticaret-seo", aciklama: "Ürün ve kategori sayfalarının nasıl puanlandığı." },
+            { etiket: "Ücretsiz SEO analizi", href: "/ucretsiz-seo-analizi", aciklama: "Kayıt olmadan sitenizin durumunu bir dakikada görün." },
+        ]}
+      />
     </PazarlamaKabugu>
   );
 }

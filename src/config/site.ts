@@ -10,7 +10,7 @@ export const SITE = {
   name: "SEO Evi",
   tagline: "E-ticaret SEO'nun yeni nesli",
   description:
-    "SEO Evi; teknik SEO, anahtar kelimeler, rakipler, içerik, Merchant ve AI görünürlüğünü tek bir platformda birleştirir.",
+    "E-ticaret SEO platformu: teknik SEO taraması, anahtar kelime takibi, rakip analizi, ürün ve kategori sayfası skorları tek ekranda. Türkçe, e-ticaret için kurgulandı.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://seoevi.com.tr",
   locale: "tr_TR",
   email: "destek@seoevi.com.tr",

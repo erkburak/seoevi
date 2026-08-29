@@ -1,5 +1,4 @@
 import { PAZARLAMA_SAYFALARI } from "@/config/pazarlama-icerikleri";
-import { SITE } from "@/config/site";
 
 /**
  * Yetkili tarafından üst verisi düzenlenebilen herkese açık sayfalar.
@@ -26,8 +25,11 @@ const TEMEL: DuzenlenebilirSayfa[] = [
     path: "/",
     ad: "Ana sayfa",
     grup: "Ana",
-    varsayilanTitle: "E-ticaret SEO Platformu — Google ve AI aramalarında büyüyün",
-    varsayilanDescription: SITE.description,
+    // Hedef kelime başta: "e-ticaret SEO". Marka sona alınır; başlıkta
+    // ilk sözcükler hem sıralamada hem tıklamada daha ağır basar.
+    varsayilanTitle: "E-ticaret SEO Aracı — Ürün ve Kategori Analizi | SEO Evi",
+    varsayilanDescription:
+      "E-ticaret SEO platformu: teknik SEO taraması, anahtar kelime takibi, rakip analizi, ürün ve kategori sayfası skorları tek ekranda. Türkçe, e-ticaret için kurgulandı. 7 gün ücretsiz deneyin.",
   },
   {
     path: "/fiyatlandirma",

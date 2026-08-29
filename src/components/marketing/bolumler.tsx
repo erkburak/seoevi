@@ -545,6 +545,117 @@ export function OzelliklerBolumu() {
 /* ------------------------------------------------------------------ */
 /* Sık sorulanlar                                                      */
 /* ------------------------------------------------------------------ */
+/* E-ticaret SEO'yu keşfedin — iç bağlantı bölümü                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ana sayfadan alt sayfalara bağlamsal bağlantılar.
+ *
+ * Bağlantılar bir liste hâlinde alta yığılmaz; her biri o sayfanın ne
+ * işe yaradığını anlatan bir cümlenin içinde geçer. Bağlantı metni de
+ * hedef sayfanın sıralanmak istediği ifadedir — "detaylı bilgi" gibi
+ * metinler arama motoruna hiçbir şey söylemez.
+ */
+const KESIF_BASLIKLARI: { baslik: string; href: string; metin: string }[] = [
+  {
+    baslik: "Ürün ve kategori sayfaları",
+    href: "/e-ticaret-seo",
+    metin:
+      "Binlerce ürünü tek tek incelemek imkânsız. Her ürün ve kategori sayfası ayrı puanlanır; hangi alanın eksik olduğu ve bunun ne kadar trafik kaybettirdiği gösterilir.",
+  },
+  {
+    baslik: "Teknik SEO analizi",
+    href: "/teknik-seo-analizi",
+    metin:
+      "Sitenizin tamamı taranır: başlık, açıklama, yönlendirme, kırık bağlantı, indekslenebilirlik ve site mimarisi. Sorunlar önem sırasına dizilir.",
+  },
+  {
+    baslik: "Rakip SEO analizi",
+    href: "/rakip-seo-analizi",
+    metin:
+      "Rakipleriniz hangi kelimelerde sizden önde ve o kelimeler ayda kaç ziyaret getiriyor? Aradaki farkı kapatmanın maliyeti hesaplanır.",
+  },
+  {
+    baslik: "Anahtar kelime araştırma aracı",
+    href: "/anahtar-kelime-arastirma-araci",
+    metin:
+      "Hangi kelimede kaçıncı sıradasınız, hangisi ilk sayfaya bir adım uzakta? Fırsat skoru en çok kazandıracak kelimeyi öne çıkarır.",
+  },
+  {
+    baslik: "Google Alışveriş SEO",
+    href: "/google-shopping-seo",
+    metin:
+      "Ürünleriniz Alışveriş sonuçlarında görünüyor mu, görünmüyorsa neden? Merchant verisi ve fiyat konumu birlikte incelenir.",
+  },
+  {
+    baslik: "Yapay zekâ görünürlüğü",
+    href: "/ai-seo",
+    metin:
+      "Biri yapay zekâya soru sorduğunda cevapta siz mi görünüyorsunuz, rakibiniz mi? Gerçek cevaplar ve gösterilen kaynaklar ölçülür.",
+  },
+];
+
+export function KesifBolumu() {
+  return (
+    <section className="border-t border-line bg-white">
+      <div className="mx-auto max-w-6xl px-5 py-20 lg:px-8 lg:py-24">
+        <div className="max-w-2xl">
+          <h2 className="text-[30px] font-semibold tracking-[-0.025em] text-ink-900 sm:text-[34px]">
+            E-ticaret SEO&apos;nun her parçası
+          </h2>
+          <p className="mt-3 text-[15px] leading-relaxed text-ink-500">
+            E-ticarette SEO, tek bir işten ibaret değil. Teknik altyapı, ürün sayfaları, rakipler
+            ve arama sonuçlarındaki yeni yapay zekâ cevapları birbirini etkiler. SEO Evi bunların
+            hepsini aynı yerde ölçer.
+          </p>
+        </div>
+
+        <ul className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+          {KESIF_BASLIKLARI.map((k) => (
+            <li key={k.href}>
+              <h3 className="text-[15.5px] font-semibold text-ink-900">
+                <Link
+                  href={k.href}
+                  className="underline decoration-ink-200 underline-offset-4 transition-colors hover:decoration-ink-900"
+                >
+                  {k.baslik}
+                </Link>
+              </h3>
+              <p className="mt-2 text-[13.5px] leading-relaxed text-ink-500">{k.metin}</p>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-10 text-[14px] leading-relaxed text-ink-500">
+          Nereden başlayacağınızdan emin değilseniz{" "}
+          <Link
+            href="/ucretsiz-seo-analizi"
+            className="font-medium text-ink-900 underline decoration-ink-200 underline-offset-2 hover:decoration-ink-900"
+          >
+            ücretsiz SEO analizi
+          </Link>{" "}
+          ile sitenizin durumunu bir dakikada görebilir, tek bir kelimedeki sıranızı{" "}
+          <Link
+            href="/google-sira-bulucu"
+            className="font-medium text-ink-900 underline decoration-ink-200 underline-offset-2 hover:decoration-ink-900"
+          >
+            Google sıra bulucu
+          </Link>{" "}
+          ile kontrol edebilirsiniz. Platformun tamamını görmek için{" "}
+          <Link
+            href="/seo-araci"
+            className="font-medium text-ink-900 underline decoration-ink-200 underline-offset-2 hover:decoration-ink-900"
+          >
+            e-ticaret SEO aracı
+          </Link>{" "}
+          sayfasına göz atın.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 
 export const SSS_LISTESI = [
   {

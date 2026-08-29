@@ -1,3 +1,4 @@
+import { IlgiliSayfalar } from "@/components/marketing/ilgili-sayfalar";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -116,6 +117,13 @@ export default function HakkimizdaSayfasi() {
           </div>
         </section>
       </Icerik>
+      <IlgiliSayfalar
+        ogeler={[
+            { etiket: "E-ticaret SEO", href: "/", aciklama: "Platformun ne yaptığına ve hangi parçalardan oluştuğuna genel bakış." },
+            { etiket: "E-ticaret SEO aracı", href: "/seo-araci", aciklama: "Teknik tarama, kelime takibi ve rakip analizi tek ekranda." },
+            { etiket: "Fiyatlandırma", href: "/fiyatlandirma", aciklama: "Paketler, limitler ve 7 günlük ücretsiz deneme." },
+        ]}
+      />
     </PazarlamaKabugu>
   );
 }
