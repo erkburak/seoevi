@@ -23,6 +23,14 @@ export type PlanLimitleri = {
   projeler: number;
   /** Aynı anda takip edilebilecek azami anahtar kelime (stok limiti). */
   anahtar_kelime: number;
+  /**
+   * Her analizde sırası CANLI aramayla doğrulanan kelime sayısı.
+   *
+   * `anahtar_kelime` saklanan kelimedir ve maliyeti yoktur; bu ise her
+   * biri ayrı bir SERP görevi demek olduğu için maliyeti doğrudan
+   * belirler. En yüksek fırsat skorlu kelimeler doğrulanır.
+   */
+  dogrulanan_kelime: number;
   /** Aylık anahtar kelime araştırma çağrısı (akış limiti, maliyetli). */
   aylik_kelime_arastirmasi: number;
   gunluk_serp: number;
@@ -40,6 +48,14 @@ export type PlanLimitleri = {
   js_olcum: boolean;
   /** JavaScript ile yeniden ölçülecek azami sayfa sayısı. */
   js_olcum_sayfa: number;
+  /** Sayfa hızı ölçümü (Çekirdek Web Verileri). */
+  sayfa_hizi: boolean;
+  /** Her analizde hızı ölçülecek azami sayfa sayısı. */
+  hiz_olcum_sayfa: number;
+  /** Ürünü satan diğer satıcıların fiyatlarıyla karşılaştırma. */
+  satici_karsilastirma: boolean;
+  /** Google İşletme kaydındaki puan ve yorumların izlenmesi. */
+  isletme_yorumlari: boolean;
 };
 
 export type Plan = {
@@ -162,6 +178,8 @@ export type ProjeAyarlari = {
   max_crawl_pages: number;
   product_url_pattern: string | null;
   category_url_pattern: string | null;
+  /** Google İşletme kaydının adı; yorum modülü bunu kullanır. */
+  google_isletme_adi: string | null;
   notification_prefs: { email: boolean; uygulama: boolean };
   updated_at: string;
 };

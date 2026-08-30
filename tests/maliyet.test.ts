@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   aylikMaliyet,
+  beklenenMaliyet,
+  tavanMaliyetOrani,
   BIRIM_MALIYET,
   HEDEF_MALIYET_ORANI,
   maliyetOrani,
@@ -21,7 +23,7 @@ const PAKETLER: { ad: string; fiyat: number; limit: LimitGirdisi }[] = [
     ad: "Başlangıç",
     fiyat: 499,
     limit: {
-      gunluk_serp: 15, aylik_site_taramasi: 2, tarama_sayfa: 300,
+      gunluk_serp: 15, dogrulanan_kelime: 50, hiz_olcum_sayfa: 10, satici_karsilastirma: false, isletme_yorumlari: true, aylik_site_taramasi: 2, tarama_sayfa: 300,
       aylik_kelime_arastirmasi: 8, aylik_ai: 35, rakip: 2,
       geri_baglanti: false, merchant: false, ai_gorunurlugu: false,
     },
@@ -30,16 +32,16 @@ const PAKETLER: { ad: string; fiyat: number; limit: LimitGirdisi }[] = [
     ad: "Profesyonel",
     fiyat: 999,
     limit: {
-      gunluk_serp: 30, aylik_site_taramasi: 4, tarama_sayfa: 600,
+      gunluk_serp: 30, dogrulanan_kelime: 150, hiz_olcum_sayfa: 20, satici_karsilastirma: true, isletme_yorumlari: true, aylik_site_taramasi: 4, tarama_sayfa: 600,
       aylik_kelime_arastirmasi: 12, aylik_ai: 45, rakip: 5,
-      geri_baglanti: true, merchant: true, ai_gorunurlugu: false,
+      geri_baglanti: true, merchant: true, ai_gorunurlugu: true,
     },
   },
   {
     ad: "Kurumsal",
     fiyat: 1499,
     limit: {
-      gunluk_serp: 45, aylik_site_taramasi: 6, tarama_sayfa: 1000,
+      gunluk_serp: 45, dogrulanan_kelime: 300, hiz_olcum_sayfa: 25, satici_karsilastirma: true, isletme_yorumlari: true, aylik_site_taramasi: 6, tarama_sayfa: 1000,
       aylik_kelime_arastirmasi: 20, aylik_ai: 55, rakip: 10,
       geri_baglanti: true, merchant: true, ai_gorunurlugu: true,
     },
@@ -47,30 +49,31 @@ const PAKETLER: { ad: string; fiyat: number; limit: LimitGirdisi }[] = [
 ];
 
 const DENEME: LimitGirdisi = {
-  gunluk_serp: 5, aylik_site_taramasi: 1, tarama_sayfa: 100,
-  aylik_kelime_arastirmasi: 2, aylik_ai: 8, rakip: 1,
+  gunluk_serp: 3, dogrulanan_kelime: 10, hiz_olcum_sayfa: 3, satici_karsilastirma: false, isletme_yorumlari: false, aylik_site_taramasi: 1, tarama_sayfa: 150,
+  aylik_kelime_arastirmasi: 1, aylik_ai: 4, rakip: 1,
   geri_baglanti: false, merchant: false, ai_gorunurlugu: false,
 };
 
 describe("birim maliyetler", () => {
   it("sağlayıcı fiyat listesiyle uyumlu", () => {
-    // Bu değerler DataForSEO hesabının price alanından alınmıştır.
-    // Değişirse paket limitleri gözden geçirilmelidir.
-    expect(BIRIM_MALIYET.serp).toBe(0.002);
+    // Bu değerler sağlayıcıya gerçek istek atılarak ölçülmüştür
+    // (30 Ağustos 2026). Değişirse paket limitleri gözden geçirilmelidir.
+    expect(BIRIM_MALIYET.serp).toBe(0.006);
+    expect(BIRIM_MALIYET.serpGorev).toBe(0.0018);
     expect(BIRIM_MALIYET.taramaSayfa).toBe(0.00015);
     expect(BIRIM_MALIYET.kelimeArastirmasi).toBe(0.09);
   });
 
   it("kelime araştırması en pahalı uç noktadır", () => {
     // Limitlerin en sıkı tutulması gereken kalem budur.
-    expect(BIRIM_MALIYET.kelimeArastirmasi).toBeGreaterThan(BIRIM_MALIYET.serp * 10);
+    expect(BIRIM_MALIYET.kelimeArastirmasi).toBeGreaterThan(BIRIM_MALIYET.serp * 6);
   });
 });
 
 describe("aylikMaliyet", () => {
   it("SERP maliyetini gün sayısıyla çarpar", () => {
     const m = aylikMaliyet({ ...DENEME, gunluk_serp: 100 }, 30);
-    expect(m.serp).toBeCloseTo(100 * 30 * 0.002, 5);
+    expect(m.serp).toBeCloseTo(100 * 30 * 0.006, 5);
   });
 
   it("tarama maliyetini sayfa başına hesaplar", () => {
@@ -92,8 +95,45 @@ describe("aylikMaliyet", () => {
 
   it("toplam, kalemlerin toplamına eşittir", () => {
     const m = aylikMaliyet(PAKETLER[1].limit);
-    const kalemler = m.serp + m.tarama + m.kelimeArastirmasi + m.labs + m.backlink + m.merchant + m.icerik + m.ai;
+    const kalemler =
+      m.serp +
+      m.siraDogrulama +
+      m.sayfaHizi +
+      m.saticiVeYorum +
+      m.tarama +
+      m.kelimeArastirmasi +
+      m.labs +
+      m.backlink +
+      m.merchant +
+      m.icerik +
+      m.ai;
     expect(m.toplam).toBeCloseTo(kalemler, 6);
+  });
+});
+
+describe("kullanım payı", () => {
+  /*
+   * Limitlerin çoğu taahhüt değil tavandır. Ölçülen gerçek birim
+   * fiyatlarla "her gün tavana vurulur" varsayımı paketleri %43–%53
+   * maliyet oranında gösteriyordu; kimsenin yapmadığı bir kullanımın
+   * parasını fiyata koymak anlamına gelirdi. Bu yüzden iki ayrı rakam
+   * hesaplanır ve fiyatlandırma beklenen maliyete bakar.
+   */
+  it("beklenen maliyet tavanın altındadır", () => {
+    const l = PAKETLER[2].limit;
+    expect(beklenenMaliyet(l).toplam).toBeLessThan(aylikMaliyet(l).toplam);
+  });
+
+  it("pay verilmezse tavan hesaplanır", () => {
+    const l = PAKETLER[1].limit;
+    expect(aylikMaliyet(l, 30, {}).toplam).toBeCloseTo(aylikMaliyet(l).toplam, 6);
+  });
+
+  it("tavan oranı gizlenmez, ayrıca hesaplanabilir", () => {
+    // Riskin büyüklüğü görünür kalmalı: bugün tavan oranları %25'in
+    // üzerinde ve bu bilerek kabul edilmiş bir risktir.
+    const { limit, fiyat } = PAKETLER[2];
+    expect(tavanMaliyetOrani(limit, fiyat)).toBeGreaterThan(maliyetOrani(limit, fiyat));
   });
 });
 
@@ -111,7 +151,7 @@ describe("paket sürdürülebilirliği", () => {
 
   it("limitler yükseltilirse paket sürdürülemez hâle gelir", () => {
     // Modelin gerçekten koruma sağladığını doğrular.
-    const asiri = { ...PAKETLER[0].limit, gunluk_serp: 200 };
+    const asiri = { ...PAKETLER[0].limit, gunluk_serp: 900 };
     expect(surdurulebilirMi(asiri, PAKETLER[0].fiyat)).toBe(false);
   });
 
@@ -146,7 +186,8 @@ describe("ücretsiz deneme maliyeti", () => {
 describe("kur", () => {
   it("gelir hesabında kur kullanılır", () => {
     const oran = maliyetOrani(PAKETLER[0].limit, PAKETLER[0].fiyat);
-    const beklenen = aylikMaliyet(PAKETLER[0].limit).toplam / (PAKETLER[0].fiyat / USD_TRY);
+    // Oran BEKLENEN maliyet üzerinden hesaplanır; tavan ayrıca raporlanır.
+    const beklenen = beklenenMaliyet(PAKETLER[0].limit).toplam / (PAKETLER[0].fiyat / USD_TRY);
     expect(oran).toBeCloseTo(beklenen, 6);
   });
 

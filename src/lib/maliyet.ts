@@ -8,15 +8,30 @@
  * Fiyat listesi değişirse `npm run tani:servis` ile karşılaştırıp
  * bu dosyayı güncelleyin.
  *
- * Son doğrulama: 27 Ağustos 2026
+ * Son doğrulama: 30 Agustos 2026 (SERP fiyatlari canli olcumle duzeltildi)
  */
 
 /** Sağlayıcı birim fiyatları — USD. */
 export const BIRIM_MALIYET = {
-  /** Canlı SERP sorgusu (google organic live advanced). */
-  serp: 0.002,
-  /** Kuyruklu SERP görevi — canlıya göre ucuz, sonuç gecikmeli. */
-  serpGorev: 0.0006,
+  /**
+   * Canlı SERP sorgusu (google organic live advanced), derinlik 30.
+   *
+   * Ölçülen değerdir, fiyat listesinden okunan tahmin değil. Derinlik
+   * doğrudan fiyata yansır: 20 → $0.004, 30 → $0.006, 50 → $0.010,
+   * 100 → $0.014. `serpGetir` varsayılan olarak derinlik 30 kullandığı
+   * için model de bu değeri esas alır.
+   */
+  serp: 0.006,
+  /** Canlı SERP, derinlik 100 — tam sayfa taraması gerektiğinde. */
+  serpDerin: 0.014,
+  /**
+   * Kuyruklu SERP görevi (task_post, standart öncelik), derinlik 30.
+   *
+   * Canlının üçte biri fiyat; sonuç birkaç dakika gecikmeli gelir.
+   * Sıralama doğrulaması arka planda çalıştığı için gecikme sorun değil,
+   * fiyat farkı ise paket limitlerini doğrudan belirliyor.
+   */
+  serpGorev: 0.0018,
   /** OnPage taramasında sayfa başına. */
   taramaSayfa: 0.00015,
   /** Tek sayfa anlık analizi (instant_pages). */
@@ -26,6 +41,12 @@ export const BIRIM_MALIYET = {
   labsBinSatir: 0.012,
   /** Google Ads anahtar kelime verisi — çağrı başına. En pahalı uç nokta. */
   kelimeArastirmasi: 0.09,
+  /** Lighthouse ile sayfa hızı ölçümü — sayfa başına (canlı ve kuyruklu aynı). */
+  sayfaHizi: 0.005,
+  /** Bir ürünü satan satıcıların listesi — ürün başına. */
+  saticiSorgusu: 0.001,
+  /** Google İşletme yorumları — çağrı başına. */
+  isletmeYorumu: 0.00075,
   /** Geri bağlantı uç noktaları — taban + 1000 satır başına. */
   backlinkTaban: 0.000036,
   backlinkBinSatir: 0.024,
@@ -52,8 +73,42 @@ export const USD_TRY = 48.14;
 /** Hedeflenen azami API maliyeti / gelir oranı. */
 export const HEDEF_MALIYET_ORANI = 0.25;
 
+/**
+ * Limitin ne kadarının gerçekte kullanıldığına dair varsayım.
+ *
+ * Limitlerin çoğu bir TAAHHÜT değil, bir TAVANdır. `gunluk_serp` bir
+ * kullanıcının günde açabileceği azami SERP sayısıdır; her gün tavana
+ * vurulacağını varsaymak, kimsenin yapmadığı bir kullanımın parasını
+ * fiyata koymak olur. Ölçülen gerçek birim fiyatlarla bu varsayım
+ * paketleri %43–%53 maliyet oranında gösteriyordu.
+ *
+ * Bu yüzden iki ayrı rakam hesaplanır:
+ *
+ *   `aylikMaliyet`   → TAVAN. Kullanıcı hakkının tamamını kullanırsa.
+ *   `beklenenMaliyet`→ Gerçekçi kullanımla. Fiyatlandırma buna bakar.
+ *
+ * DİKKAT: aşağıdaki paylar şu an ÖLÇÜM DEĞİL, varsayımdır — ürün henüz
+ * yayında değil. `npm run tani:kullanim` gerçek tüketimi raporlar;
+ * yeterli veri biriktiğinde bu sayılar ölçümle değiştirilmelidir.
+ * Değiştirilene kadar tavan rakamı da gözden kaçırılmamalıdır.
+ */
+export const KULLANIM_PAYI = {
+  /** Kullanıcı tetikli, talep üzerine: kelimeye tıklayıp SERP açmak. */
+  gunluk_serp: 0.2,
+  /** Kullanıcı ayda birkaç kez analiz başlatır, hakkının tamamını nadiren kullanır. */
+  aylik_site_taramasi: 0.6,
+  aylik_kelime_arastirmasi: 0.6,
+  aylik_ai: 0.6,
+} as const;
+
 export type LimitGirdisi = {
   gunluk_serp: number;
+  /** Her analizde sırası canlı doğrulanan kelime sayısı. */
+  dogrulanan_kelime: number;
+  /** Her analizde hızı ölçülen sayfa sayısı. */
+  hiz_olcum_sayfa: number;
+  satici_karsilastirma: boolean;
+  isletme_yorumlari: boolean;
   aylik_site_taramasi: number;
   tarama_sayfa: number;
   aylik_kelime_arastirmasi: number;
@@ -66,6 +121,12 @@ export type LimitGirdisi = {
 
 export type MaliyetDokumu = {
   serp: number;
+  /** Sıralama doğrulaması — kuyruklu SERP görevleri. */
+  siraDogrulama: number;
+  /** Sayfa hızı ölçümü. */
+  sayfaHizi: number;
+  /** Satıcı fiyat karşılaştırması ve işletme yorumları. */
+  saticiVeYorum: number;
   tarama: number;
   kelimeArastirmasi: number;
   labs: number;
@@ -76,15 +137,47 @@ export type MaliyetDokumu = {
   toplam: number;
 };
 
-/** Bir paketin aylık en kötü durum maliyetini USD olarak hesaplar. */
-export function aylikMaliyet(limit: LimitGirdisi, gunSayisi = 30): MaliyetDokumu {
-  const serp = limit.gunluk_serp * gunSayisi * BIRIM_MALIYET.serp;
+/**
+ * Bir paketin aylık TAVAN maliyetini USD olarak hesaplar.
+ *
+ * `paylar` verilirse her limit o oranda kullanılmış sayılır; böylece
+ * beklenen maliyet aynı formülden çıkar ve iki rakam ayrışmaz.
+ */
+export function aylikMaliyet(
+  limit: LimitGirdisi,
+  gunSayisi = 30,
+  paylar: Partial<Record<keyof typeof KULLANIM_PAYI, number>> = {},
+): MaliyetDokumu {
+  const pay = (ad: keyof typeof KULLANIM_PAYI) => paylar[ad] ?? 1;
 
-  const tarama =
-    limit.aylik_site_taramasi * limit.tarama_sayfa * BIRIM_MALIYET.taramaSayfa;
+  const analizSayisi = limit.aylik_site_taramasi * pay("aylik_site_taramasi");
+
+  const serp = limit.gunluk_serp * gunSayisi * BIRIM_MALIYET.serp * pay("gunluk_serp");
+
+  /*
+   * Sıralama doğrulaması her site analizinde bir kez çalışır: takip
+   * edilen en yüksek fırsatlı N kelimenin sırası kuyruklu SERP göreviyle
+   * canlı ölçülür. Labs verisi aylar eski olabildiği için bu kalem
+   * pazarlık konusu değil; ürünün doğru olmasının bedeli.
+   */
+  const siraDogrulama = limit.dogrulanan_kelime * analizSayisi * BIRIM_MALIYET.serpGorev;
+
+  const tarama = analizSayisi * limit.tarama_sayfa * BIRIM_MALIYET.taramaSayfa;
+
+  // Hız ölçümü her site analizinde, şablon temsilcisi sayfalar için yapılır.
+  const sayfaHizi = limit.hiz_olcum_sayfa * analizSayisi * BIRIM_MALIYET.sayfaHizi;
+
+  /*
+   * Satıcı sorgusu Merchant analizindeki ilk 10 ürünle sınırlı ve o
+   * analizin Alışveriş sorgusu önbelleklidir; burada yalnızca satıcı
+   * sorgusunun kendisi sayılır.
+   */
+  const saticiVeYorum =
+    (limit.satici_karsilastirma ? 10 * analizSayisi * BIRIM_MALIYET.saticiSorgusu : 0) +
+    (limit.isletme_yorumlari ? analizSayisi * BIRIM_MALIYET.isletmeYorumu : 0);
 
   const kelimeArastirmasi =
-    limit.aylik_kelime_arastirmasi * BIRIM_MALIYET.kelimeArastirmasi;
+    limit.aylik_kelime_arastirmasi * pay("aylik_kelime_arastirmasi") * BIRIM_MALIYET.kelimeArastirmasi;
 
   // Labs çağrıları rakip başına ayda birkaç kez yenilenir.
   const labsCagri = (limit.rakip + 1) * 4;
@@ -101,15 +194,56 @@ export function aylikMaliyet(limit: LimitGirdisi, gunSayisi = 30): MaliyetDokumu
   const icerikAnalizi = Math.min(20, limit.gunluk_serp);
   const icerik = icerikAnalizi * 7 * BIRIM_MALIYET.anlikSayfa;
 
-  const ai = limit.aylik_ai * AI_CAGRI_MALIYETI;
+  const ai = limit.aylik_ai * pay("aylik_ai") * AI_CAGRI_MALIYETI;
 
-  const toplam = serp + tarama + kelimeArastirmasi + labs + backlink + merchant + icerik + ai;
+  const toplam =
+    serp +
+    siraDogrulama +
+    sayfaHizi +
+    saticiVeYorum +
+    tarama +
+    kelimeArastirmasi +
+    labs +
+    backlink +
+    merchant +
+    icerik +
+    ai;
 
-  return { serp, tarama, kelimeArastirmasi, labs, backlink, merchant, icerik, ai, toplam };
+  return {
+    serp,
+    siraDogrulama,
+    sayfaHizi,
+    saticiVeYorum,
+    tarama,
+    kelimeArastirmasi,
+    labs,
+    backlink,
+    merchant,
+    icerik,
+    ai,
+    toplam,
+  };
 }
 
-/** Paketin maliyet / gelir oranını döndürür. */
+/**
+ * Gerçekçi kullanımla aylık maliyet.
+ *
+ * Fiyatlandırma kararları buna bakar; tavan rakamı riskin büyüklüğünü
+ * görmek için ayrıca hesaplanır.
+ */
+export function beklenenMaliyet(limit: LimitGirdisi, gunSayisi = 30): MaliyetDokumu {
+  return aylikMaliyet(limit, gunSayisi, KULLANIM_PAYI);
+}
+
+/** Paketin BEKLENEN maliyet / gelir oranını döndürür. */
 export function maliyetOrani(limit: LimitGirdisi, aylikFiyatTl: number): number {
+  const gelirUsd = aylikFiyatTl / USD_TRY;
+  if (gelirUsd <= 0) return Infinity;
+  return beklenenMaliyet(limit).toplam / gelirUsd;
+}
+
+/** Paketin TAVAN maliyet / gelir oranı — hakkının tamamı kullanılırsa. */
+export function tavanMaliyetOrani(limit: LimitGirdisi, aylikFiyatTl: number): number {
   const gelirUsd = aylikFiyatTl / USD_TRY;
   if (gelirUsd <= 0) return Infinity;
   return aylikMaliyet(limit).toplam / gelirUsd;

@@ -60,7 +60,7 @@ export default async function FiyatKonumuSayfasi() {
     );
   }
 
-  const [ozet, { data: calisanIs }] = await Promise.all([
+  const [ozet, { data: calisanIs }, { data: teklifVerisi }] = await Promise.all([
     fiyatKonumlari(proje.id, 80, proje.domain),
     supabase
       .from("audit_jobs")
@@ -70,7 +70,46 @@ export default async function FiyatKonumuSayfasi() {
       .in("status", ["bekliyor", "isleniyor", "yeniden_deneniyor"])
       .limit(1)
       .maybeSingle(),
+    /*
+     * Satıcı teklifleri Google'ın ürün kimliği üzerinden alınır; yukarıdaki
+     * fiyat konumu tablosu Alışveriş sonuçlarının başlık eşleşmesine
+     * dayanır. Bu bölüm tahmin değil, kesin eşleşmedir.
+     */
+    supabase
+      .from("satici_teklifleri")
+      .select("google_urun_id, satici, alan_adi, toplam_fiyat, fiyat, para_birimi, bizim_mi, products(name)")
+      .eq("project_id", proje.id)
+      .order("toplam_fiyat", { ascending: true, nullsFirst: false })
+      .limit(300),
   ]);
+
+  /* Satıcı teklifleri ürün bazında gruplanır. */
+  type TeklifSatiri = {
+    google_urun_id: string;
+    satici: string;
+    toplam_fiyat: number | null;
+    fiyat: number | null;
+    para_birimi: string;
+    bizim_mi: boolean;
+    products: { name: string | null } | { name: string | null }[] | null;
+  };
+
+  const teklifler = (teklifVerisi ?? []) as unknown as TeklifSatiri[];
+  const gruplar = new Map<string, { urunAdi: string; teklifler: TeklifSatiri[] }>();
+
+  for (const t of teklifler) {
+    const urun = Array.isArray(t.products) ? t.products[0] : t.products;
+    if (!gruplar.has(t.google_urun_id)) {
+      gruplar.set(t.google_urun_id, { urunAdi: urun?.name ?? "Ürün", teklifler: [] });
+    }
+    gruplar.get(t.google_urun_id)!.teklifler.push(t);
+  }
+
+  const saticiGruplari = [...gruplar.entries()]
+    // Tek satıcılı ürün karşılaştırma sunmaz; yalnızca rakibi olanlar gösterilir.
+    .filter(([, g]) => g.teklifler.length > 1)
+    .map(([googleUrunId, g]) => ({ googleUrunId, ...g }))
+    .slice(0, 20);
 
   if (!ozet.satirlar.length) {
     return (
@@ -219,6 +258,49 @@ export default async function FiyatKonumuSayfasi() {
             </table>
           </div>
         </section>
+
+        {saticiGruplari.length ? (
+          <section>
+            <BolumBasligi
+              baslik="Aynı ürünü satan mağazalar"
+              aciklama="Google'ın ürün kimliği üzerinden eşleştirildi; başlık benzerliğine değil kesin eşleşmeye dayanır. En ucuzdan sıralıdır."
+            />
+            <div className="mt-4 space-y-4">
+              {saticiGruplari.map((g) => (
+                <div key={g.googleUrunId} className="rounded-[14px] border border-line bg-white p-4">
+                  <p className="text-[14px] font-medium text-ink-900">{g.urunAdi}</p>
+                  <ul className="mt-3 divide-y divide-line">
+                    {g.teklifler.map((t, i) => (
+                      <li
+                        key={`${t.satici}-${i}`}
+                        className="flex flex-wrap items-center justify-between gap-2 py-2"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="tabular w-6 shrink-0 text-[12.5px] text-ink-400">
+                            {i + 1}.
+                          </span>
+                          <span className="truncate text-[13.5px] text-ink-800">{t.satici}</span>
+                          {t.bizim_mi ? <Rozet ton="olumlu">siz</Rozet> : null}
+                        </div>
+                        <span
+                          className={
+                            t.bizim_mi
+                              ? "tabular shrink-0 text-[13.5px] font-semibold text-ink-900"
+                              : "tabular shrink-0 text-[13.5px] text-ink-600"
+                          }
+                        >
+                          {t.toplam_fiyat ?? t.fiyat
+                            ? `${(t.toplam_fiyat ?? t.fiyat)!.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ${t.para_birimi}`
+                            : "—"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-[14px] border border-line bg-surface-muted/50 p-5">
           <h2 className="text-[14.5px] font-semibold text-ink-900">Fiyatı düşüremiyorsanız</h2>

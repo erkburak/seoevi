@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { gscHazirMi, yetkilendirmeAdresi } from "@/lib/gsc/client";
 import { aktifProjeGetir } from "@/lib/projects";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
+import { SITE } from "@/config/site";
 
 /**
  * Kullanıcıyı Google onay ekranına yönlendirir.
@@ -27,11 +28,11 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return NextResponse.redirect(new URL("/giris", process.env.NEXT_PUBLIC_SITE_URL));
+  if (!user) return NextResponse.redirect(new URL("/giris", SITE.url));
 
   const { aktif: proje } = await aktifProjeGetir(user.id);
   if (!proje) {
-    return NextResponse.redirect(new URL("/projeler/yeni", process.env.NEXT_PUBLIC_SITE_URL));
+    return NextResponse.redirect(new URL("/projeler/yeni", SITE.url));
   }
 
   const durum = randomBytes(24).toString("hex");

@@ -71,12 +71,12 @@ export default async function GenelBakisSayfasi({
       .limit(5),
     supabase
       .from("keyword_rankings")
-      .select("position, previous_position, keyword_id, keywords(keyword)")
+      .select("position, previous_position, keyword_id, checked_at, keywords(keyword)")
       .eq("project_id", proje.id)
       .eq("is_competitor", false)
       .not("previous_position", "is", null)
       .order("checked_at", { ascending: false })
-      .limit(80),
+      .limit(400),
     supabase
       .from("competitors")
       .select("*")
@@ -122,10 +122,23 @@ export default async function GenelBakisSayfasi({
     position: number | null;
     previous_position: number | null;
     keyword_id: string;
+    checked_at: string;
     keywords: { keyword: string } | { keyword: string }[] | null;
   };
 
-  const hareketler = ((hareketVerisi ?? []) as unknown as HareketSatiri[])
+  /*
+   * Her ölçüm yeni bir satır yazdığı için aynı kelime tabloda birden çok
+   * kez bulunur. Kelime başına yalnızca EN SON ölçüm alınır; aksi hâlde
+   * liste aynı kelimenin tekrarıyla dolar ve gerçekte kaç kelimenin
+   * hareket ettiği görünmez.
+   */
+  const enSonOlcum = new Map<string, HareketSatiri>();
+  for (const h of (hareketVerisi ?? []) as unknown as HareketSatiri[]) {
+    // Sorgu tarihe göre azalan sıralı; ilk görülen en yenisidir.
+    if (!enSonOlcum.has(h.keyword_id)) enSonOlcum.set(h.keyword_id, h);
+  }
+
+  const hareketler = [...enSonOlcum.values()]
     .map((h) => {
       const k = Array.isArray(h.keywords) ? h.keywords[0] : h.keywords;
       return {

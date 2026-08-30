@@ -13,6 +13,7 @@ import {
   FolderKanban,
   BarChart3,
   MessagesSquare,
+  MessageSquare,
 } from "lucide-react";
 
 export type NavItem = {
@@ -52,7 +53,7 @@ export const APP_NAV: NavGroup[] = [
   {
     label: "Site",
     items: [
-      { label: "Teknik SEO", href: "/teknik-seo", icon: Wrench },
+      { label: "Teknik SEO", href: "/teknik-seo", icon: Wrench, match: ["/sayfa-hizi"] },
       { label: "Sayfa Analizi", href: "/sayfa-analizi", icon: FileText },
       { label: "İçerik Analizi", href: "/icerik-analizi", icon: FileText },
       { label: "Geri Bağlantılar", href: "/geri-baglantilar", icon: Link2 },
@@ -68,6 +69,7 @@ export const APP_NAV: NavGroup[] = [
         match: ["/urun-seo", "/kategori-seo", "/merchant-analizi", "/pazaryeri-radari", "/fiyat-konumu"],
       },
       { label: "AI Görünürlüğü", href: "/ai-gorunurlugu", icon: Bot },
+      { label: "İşletme Yorumları", href: "/isletme-yorumlari", icon: MessageSquare },
     ],
   },
   {
@@ -105,6 +107,7 @@ export const KELIME_SEKMELERI: SekmeTanimi[] = [
 
 export const SITE_SEKMELERI: SekmeTanimi[] = [
   { etiket: "Teknik SEO", href: "/teknik-seo" },
+  { etiket: "Sayfa Hızı", href: "/sayfa-hizi" },
   { etiket: "Sayfalar", href: "/sayfa-analizi" },
   { etiket: "İçerik", href: "/icerik-analizi" },
   { etiket: "İç bağlantı", href: "/ic-baglanti" },
@@ -146,6 +149,7 @@ export const ARAMA_HEDEFLERI: AramaHedefi[] = [
   { baslik: "SERP Analizi", aciklama: "Arama sonuçlarını inceleyin", href: "/serp-analizi", terimler: ["serp", "arama sonucu", "google"] },
   { baslik: "Rakipler", aciklama: "Rakip alan adlarınız", href: "/rakipler", terimler: ["rakip", "competitor", "karsilastirma"] },
   { baslik: "Teknik SEO", aciklama: "Tarama ve teknik sorunlar", href: "/teknik-seo", terimler: ["teknik", "tarama", "crawl", "sorun", "hata", "indeks"] },
+  { baslik: "Sayfa Hızı", aciklama: "Çekirdek Web Verileri", href: "/sayfa-hizi", terimler: ["hiz", "hız", "speed", "lighthouse", "core web vitals", "lcp", "cls", "yavas"] },
   { baslik: "Sayfa Analizi", aciklama: "Sayfa bazlı SEO sağlığı", href: "/sayfa-analizi", terimler: ["sayfa", "page", "url"] },
   { baslik: "İçerik Analizi", aciklama: "İçerik boşlukları ve planı", href: "/icerik-analizi", terimler: ["icerik", "content", "blog", "yazi"] },
   { baslik: "Geri Bağlantılar", aciklama: "Backlink ve referans alan adları", href: "/geri-baglantilar", terimler: ["backlink", "geri baglanti", "link", "otorite"] },
@@ -155,7 +159,8 @@ export const ARAMA_HEDEFLERI: AramaHedefi[] = [
   { baslik: "Merchant Analizi", aciklama: "Google Alışveriş görünürlüğü", href: "/merchant-analizi", terimler: ["merchant", "alisveris", "shopping", "gtin"] },
   { baslik: "Mevsimsellik", aciklama: "Hangi kelimede ne zaman çalışmalı", href: "/mevsimsellik", terimler: ["mevsim", "sezon", "takvim", "zirve", "ramazan", "black friday", "okula donus"] },
   { baslik: "Sayfa Çakışması", aciklama: "Kendi sayfalarınız birbiriyle yarışıyor", href: "/yamyamlik", terimler: ["cakisma", "yamyam", "kanibalizasyon", "cannibalization", "ayni kelime"] },
-  { baslik: "Fiyat Konumu", aciklama: "Rakiplere göre fiyatınız", href: "/fiyat-konumu", terimler: ["fiyat", "price", "ucuz", "pahali", "rekabet"] },
+  { baslik: "Fiyat Konumu", aciklama: "Rakiplere göre fiyatınız", href: "/fiyat-konumu", terimler: ["fiyat", "price", "ucuz", "pahali", "rekabet", "satici"] },
+  { baslik: "İşletme Yorumları", aciklama: "Google puanı ve yorumlar", href: "/isletme-yorumlari", terimler: ["yorum", "puan", "review", "isletme", "google isletme", "yildiz", "itibar"] },
   { baslik: "Pazaryeri Radarı", aciklama: "Trendyol ve rakip pazaryeri baskısı", href: "/pazaryeri-radari", terimler: ["pazaryeri", "trendyol", "hepsiburada", "n11", "cimri", "akakce", "radar", "amazon"] },
   { baslik: "AI Görünürlüğü", aciklama: "Yapay zekâ aramalarındaki yeriniz", href: "/ai-gorunurlugu", terimler: ["ai", "yapay zeka", "gorunurluk"] },
   { baslik: "Raporlar", aciklama: "SEO raporu oluşturun", href: "/raporlar", terimler: ["rapor", "report", "pdf", "sunum"] },

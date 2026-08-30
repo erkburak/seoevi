@@ -104,6 +104,25 @@ export function AyarFormu({
 
       <Ayirac />
 
+      {/* --- Google İşletme --- */}
+      <section>
+        <BolumBasligi
+          baslik="Google İşletme kaydı"
+          aciklama="Marka aramalarında görünen işletme kartınızın puanını ve yorumlarını izleyebilmemiz için kaydın adı gerekli."
+        />
+        <div className="mt-5 max-w-2xl">
+          <Alan
+            etiket="İşletme adı"
+            name="isletmeAdi"
+            defaultValue={ayarlar.google_isletme_adi ?? ""}
+            placeholder="Örnek: Chuba Mağazacılık Ataşehir"
+            yardim="Google Haritalar'da göründüğü biçimde yazın. Tahminle arama yapmıyoruz; yanlış ad yanlış işletmenin yorumlarını getirir. Yalnızca çevrim içi satıyorsanız ve kaydınız yoksa boş bırakın."
+          />
+        </div>
+      </section>
+
+      <Ayirac />
+
       {/* --- Bildirimler --- */}
       <section>
         <BolumBasligi

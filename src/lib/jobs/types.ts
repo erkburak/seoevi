@@ -10,6 +10,7 @@ export const IS_TURLERI = [
   "merchant",
   "icerik",
   "ai",
+  "isletme",
 ] as const;
 
 export type IsTuru = (typeof IS_TURLERI)[number];
@@ -24,6 +25,7 @@ export const IS_TURU_ADI: Record<IsTuru, string> = {
   merchant: "Merchant analizi",
   icerik: "İçerik analizi",
   ai: "AI görünürlüğü analizi",
+  isletme: "İşletme yorumları",
 };
 
 /** Tam analiz akışının adımları — kullanıcıya bu adlarla gösterilir. */
@@ -33,6 +35,7 @@ export const TAM_ANALIZ_ADIMLARI: IsAdimi[] = [
   { ad: "Anahtar kelimeler analiz ediliyor", durum: "bekliyor" },
   { ad: "Rakipler inceleniyor", durum: "bekliyor" },
   { ad: "Arama sonuçları toplanıyor", durum: "bekliyor" },
+  { ad: "Sıralamalar ve sayfa hızı ölçülüyor", durum: "bekliyor" },
   { ad: "Fırsatlar hesaplanıyor", durum: "bekliyor" },
 ];
 
@@ -46,7 +49,8 @@ export const IS_ADIMLARI: Record<IsTuru, IsAdimi[]> = {
   serp: [{ ad: "Arama sonuçları alınıyor", durum: "bekliyor" }],
   rakip: [{ ad: "Rakipler inceleniyor", durum: "bekliyor" }],
   backlink: [{ ad: "Geri bağlantılar toplanıyor", durum: "bekliyor" }],
-  merchant: [{ ad: "Merchant verileri kontrol ediliyor", durum: "bekliyor" }],
+  merchant: [{ ad: "Merchant ve satıcı fiyatları kontrol ediliyor", durum: "bekliyor" }],
   icerik: [{ ad: "İçerik analizi yapılıyor", durum: "bekliyor" }],
   ai: [{ ad: "AI görünürlüğü hesaplanıyor", durum: "bekliyor" }],
+  isletme: [{ ad: "İşletme yorumları toplanıyor", durum: "bekliyor" }],
 };

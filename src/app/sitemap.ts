@@ -15,6 +15,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { yol: "/fiyatlandirma", oncelik: 0.9, siklik: "monthly" },
     { yol: "/ucretsiz-seo-analizi", oncelik: 0.9, siklik: "monthly" },
     { yol: "/google-sira-bulucu", oncelik: 0.9, siklik: "monthly" },
+    { yol: "/site-hizi-testi", oncelik: 0.9, siklik: "monthly" },
+    { yol: "/urun-sayfasi-seo-testi", oncelik: 0.9, siklik: "monthly" },
     { yol: "/meta-title-olusturucu", oncelik: 0.7, siklik: "monthly" },
     { yol: "/meta-description-olusturucu", oncelik: 0.7, siklik: "monthly" },
     { yol: "/hakkimizda", oncelik: 0.5, siklik: "yearly" },

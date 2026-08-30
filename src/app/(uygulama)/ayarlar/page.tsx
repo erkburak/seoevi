@@ -30,6 +30,7 @@ function varsayilanAyarlar(projeId: string): ProjeAyarlari {
     max_crawl_pages: 200,
     product_url_pattern: null,
     category_url_pattern: null,
+    google_isletme_adi: null,
     notification_prefs: { email: true, uygulama: true },
     updated_at: new Date().toISOString(),
   };

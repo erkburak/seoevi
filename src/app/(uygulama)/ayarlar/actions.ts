@@ -17,6 +17,7 @@ const Sema = z.object({
   maksSayfa: z.coerce.number().int().min(10).max(10_000),
   urunDeseni: z.string().trim().max(200),
   kategoriDeseni: z.string().trim().max(200),
+  isletmeAdi: z.string().trim().max(160),
   epostaBildirimi: z.boolean(),
   uygulamaBildirimi: z.boolean(),
 });
@@ -33,6 +34,7 @@ export async function ayarlariKaydet(_onceki: AyarSonucu, veri: FormData): Promi
     maksSayfa: veri.get("maksSayfa"),
     urunDeseni: veri.get("urunDeseni") ?? "",
     kategoriDeseni: veri.get("kategoriDeseni") ?? "",
+    isletmeAdi: veri.get("isletmeAdi") ?? "",
     epostaBildirimi: veri.get("epostaBildirimi") === "on",
     uygulamaBildirimi: veri.get("uygulamaBildirimi") === "on",
   });
@@ -71,6 +73,8 @@ export async function ayarlariKaydet(_onceki: AyarSonucu, veri: FormData): Promi
       max_crawl_pages: maksSayfa,
       product_url_pattern: sonuc.data.urunDeseni || null,
       category_url_pattern: sonuc.data.kategoriDeseni || null,
+      // Boş bırakılırsa işletme yorumları modülü hiç sorgu yapmaz.
+      google_isletme_adi: sonuc.data.isletmeAdi || null,
       notification_prefs: {
         email: sonuc.data.epostaBildirimi,
         uygulama: sonuc.data.uygulamaBildirimi,

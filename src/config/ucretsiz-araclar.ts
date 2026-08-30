@@ -39,3 +39,38 @@ export const SEO_ANALIZ_KOTASI: KotaAyari = {
 
 /** Aracın günlük toplam tavanı — sağlayıcı maliyetini her koşulda sınırlar. */
 export const SEO_ANALIZ_GUNLUK_TAVAN = Number(process.env.SEO_ANALIZ_GUNLUK_TAVAN ?? 300);
+
+/**
+ * Site Hızı Testi — günde 2 ölçüm.
+ *
+ * Ölçüm başına sağlayıcı maliyeti $0.005 (ölçülen değer). Sıra bulucudan
+ * pahalı olduğu için kişisel hak daha dar tutulur; ölçüm de saniyeler
+ * sürdüğü için zaten sık tekrarlanacak bir araç değildir.
+ */
+export const SITE_HIZI_KOTASI: KotaAyari = {
+  arac: "site-hizi-testi",
+  parmakIziLimiti: 2,
+  // Paylaşımlı ağlar tek IP arkasında çok kullanıcı barındırır.
+  ipLimiti: 8,
+};
+
+/**
+ * Günlük toplam tavan.
+ * 200 ölçüm × $0.005 = günde en fazla $1 — bütçenin son emniyet valfi.
+ */
+export const SITE_HIZI_GUNLUK_TAVAN = Number(process.env.SITE_HIZI_GUNLUK_TAVAN ?? 200);
+
+/**
+ * Ürün Sayfası SEO Testi — günde 3 kontrol.
+ *
+ * Sayfayı doğrudan okuduğu için sağlayıcı maliyeti YOKTUR; hak yalnızca
+ * kötüye kullanımı ve kendi sunucu yükümüzü sınırlamak için vardır.
+ */
+export const URUN_SAYFASI_KOTASI: KotaAyari = {
+  arac: "urun-sayfasi-seo-testi",
+  parmakIziLimiti: 3,
+  ipLimiti: 15,
+};
+
+/** Sağlayıcı maliyeti olmadığı için tavan yalnızca kaba bir kötüye kullanım freni. */
+export const URUN_SAYFASI_GUNLUK_TAVAN = Number(process.env.URUN_SAYFASI_GUNLUK_TAVAN ?? 1500);

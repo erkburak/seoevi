@@ -28,6 +28,10 @@ export const IC_LINKLER: IcLink[] = [
   // Uzun ifadeler önce.
   { ifade: "anahtar kelime araştırma aracı", href: "/anahtar-kelime-arastirma-araci" },
   { ifade: "ücretsiz SEO analizi", href: "/ucretsiz-seo-analizi" },
+  { ifade: "ürün sayfası SEO testi", href: "/urun-sayfasi-seo-testi" },
+  { ifade: "site hızı testi", href: "/site-hizi-testi" },
+  { ifade: "sayfa hızı", href: "/site-hizi-testi" },
+  { ifade: "zengin sonuç", href: "/urun-sayfasi-seo-testi" },
   { ifade: "Google Alışveriş SEO", href: "/google-shopping-seo" },
   { ifade: "rakip SEO analizi", href: "/rakip-seo-analizi" },
   { ifade: "teknik SEO analizi", href: "/teknik-seo-analizi" },

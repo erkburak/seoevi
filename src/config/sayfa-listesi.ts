@@ -50,6 +50,22 @@ const TEMEL: DuzenlenebilirSayfa[] = [
       "Alan adınızı ve anahtar kelimenizi girin, Google'da kaçıncı sırada olduğunuzu anında görün. İlk 10 rakip, SERP alanları ve öneriler dahil. Günde 3 sorgu ücretsiz.",
   },
   {
+    path: "/site-hizi-testi",
+    ad: "Site Hızı Testi",
+    grup: "Ücretsiz araçlar",
+    varsayilanTitle: "Site Hızı Testi — E-ticaret sayfanızı ücretsiz ölçün",
+    varsayilanDescription:
+      "Ürün ve kategori sayfalarınız mobilde kaç saniyede açılıyor? Google'ın kendi ölçüm motoruyla Çekirdek Web Verilerini görün, sayfayı yavaşlatan nedenleri Türkçe okuyun. Günde 2 ölçüm ücretsiz.",
+  },
+  {
+    path: "/urun-sayfasi-seo-testi",
+    ad: "Ürün Sayfası SEO Testi",
+    grup: "Ücretsiz araçlar",
+    varsayilanTitle: "Ürün Sayfası SEO Testi — Google fiyatınızı okuyabiliyor mu?",
+    varsayilanDescription:
+      "Ürün sayfanızın adresini girin; Google'ın fiyat, stok, marka ve değerlendirme bilgisini okuyup okuyamadığını görün. Zengin sonuç eksiklerinizi Türkçe açıklamalarla listeler. Günde 3 kontrol ücretsiz.",
+  },
+  {
     path: "/ucretsiz-seo-analizi",
     ad: "Ücretsiz SEO Analizi",
     grup: "Ücretsiz araçlar",

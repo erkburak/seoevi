@@ -33,9 +33,16 @@ export function gscHazirMi(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
+/**
+ * Google'a bildirilen yönlendirme adresi.
+ *
+ * `SITE.url` üzerinden gidilir: ortam değişkeni doğrudan okunursa
+ * oradaki `http://` hatası buraya sızar ve Google isteği
+ * `redirect_uri_mismatch` ile reddeder. Bu adresin Google Cloud
+ * Console'daki kayıtla HARFİ HARFİNE aynı olması gerekir.
+ */
 function yonlendirmeAdresi(): string {
-  const taban = process.env.NEXT_PUBLIC_SITE_URL ?? SITE.url;
-  return `${taban.replace(/\/$/, "")}/api/gsc/callback`;
+  return `${SITE.url}/api/gsc/callback`;
 }
 
 /**

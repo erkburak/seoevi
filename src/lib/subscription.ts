@@ -213,7 +213,7 @@ export async function kullanimAzalt({
  */
 export async function ozellikVarMi(
   kullaniciId: string,
-  ozellik: "geri_baglanti" | "merchant" | "ai_gorunurlugu",
+  ozellik: "geri_baglanti" | "merchant" | "ai_gorunurlugu" | "sayfa_hizi" | "satici_karsilastirma" | "isletme_yorumlari",
 ): Promise<boolean> {
   const { limitler, aktifMi } = await abonelikDurumu(kullaniciId);
   return Boolean(aktifMi && limitler?.[ozellik]);
@@ -245,6 +245,18 @@ export async function takipKelimeLimiti(
 
   const mevcut = count ?? 0;
   return { limit, mevcut, kalan: Math.max(0, limit - mevcut) };
+}
+
+/**
+ * Her analizde sırası canlı doğrulanacak kelime sayısı.
+ *
+ * `anahtar_kelime` saklanan kelime sayısıdır ve maliyeti yoktur; bu ise
+ * her biri ayrı bir SERP görevi olduğu için maliyeti doğrudan belirler.
+ */
+export async function dogrulanacakKelimeLimiti(kullaniciId: string): Promise<number> {
+  const { limitler, aktifMi } = await abonelikDurumu(kullaniciId);
+  if (!aktifMi) return 0;
+  return typeof limitler?.dogrulanan_kelime === "number" ? limitler.dogrulanan_kelime : 0;
 }
 
 /** Proje sayısı limitini kontrol eder. */

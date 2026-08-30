@@ -17,6 +17,7 @@
     "tani:sayfalar": "node scripts/tani/sayfa-tarama.mjs",
     "tani:kullanici": "tsx scripts/tani/test-kullanici.ts",
     "tani:maliyet": "tsx scripts/tani/paket-maliyeti.ts",
+    "tani:kullanim": "tsx scripts/tani/kullanim-payi.ts",
     "test:entegrasyon": "vitest run --config vitest.entegrasyon.mts",
     "tani:onbellek": "tsx scripts/tani/onbellek-ozeti.ts",
     "tani:yetkili": "tsx scripts/tani/yetkili-yap.ts"

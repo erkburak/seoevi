@@ -11,6 +11,7 @@ import type { Plan, PlanLimitleri } from "@/types/database";
 export const LIMIT_ADLARI: Record<keyof PlanLimitleri, string> = {
   projeler: "Proje (mağaza)",
   anahtar_kelime: "Takip edilen anahtar kelime",
+  dogrulanan_kelime: "Sırası canlı doğrulanan kelime",
   aylik_kelime_arastirmasi: "Aylık anahtar kelime araştırması",
   gunluk_serp: "Günlük SERP analizi",
   aylik_site_taramasi: "Aylık site taraması",
@@ -24,6 +25,10 @@ export const LIMIT_ADLARI: Record<keyof PlanLimitleri, string> = {
   ai_takip_sorusu: "Takip edilen AI sorusu",
   js_olcum: "JavaScript ile ölçüm",
   js_olcum_sayfa: "JavaScript ile ölçülen sayfa",
+  sayfa_hizi: "Sayfa hızı ölçümü",
+  hiz_olcum_sayfa: "Hızı ölçülen sayfa",
+  satici_karsilastirma: "Satıcı fiyat karşılaştırması",
+  isletme_yorumlari: "Google İşletme yorumları",
 };
 
 /** Kullanım sayaçlarının okunabilir adları. */

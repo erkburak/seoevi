@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { IcerikStratejisiPaneli } from "@/components/app/icerik-stratejisi";
 import { SayfaBasligi } from "@/components/app/sayfa-basligi";
 import { SerpGorunumu, type SerpVerisi } from "@/components/app/serp-gorunumu";
+import { SiraHucresi } from "@/components/app/sira-hucresi";
 import { CizgiGrafik } from "@/components/charts";
 import { AmacRozeti, Rozet } from "@/components/ui/badge";
 import { Buton } from "@/components/ui/button";
@@ -152,8 +153,13 @@ export default async function KelimeDetaySayfasi({
                 <PozisyonDegisimi simdiki={kelime.position} onceki={kelime.previous_position} />
               </span>
             ) : (
-              "—"
+              <SiraHucresi sira={null} olculduAt={kelime.checked_at} />
             )
+          }
+          ipucu={
+            kelime.checked_at
+              ? `Sıra ${tarihSaat(kelime.checked_at)} tarihinde canlı olarak ölçüldü.`
+              : "Bu kelimenin sırası henüz ölçülmedi. Sıralar her analizde, paketinizin izin verdiği sayıda kelime için canlı ölçülür."
           }
         />
         <OzetDegeri

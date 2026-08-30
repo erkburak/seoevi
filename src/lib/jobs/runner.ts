@@ -7,7 +7,14 @@ import { oneriUret } from "@/lib/analiz/ic-baglanti";
 import { backlinkAnaliziYap } from "@/lib/analiz/backlink";
 import { icerikAnaliziYap } from "@/lib/analiz/icerik";
 import { merchantAnaliziYap } from "@/lib/analiz/merchant";
-import { kelimeAnaliziYap } from "@/lib/analiz/kelime";
+import { bekleyenSiralariIsle, kelimeAnaliziYap } from "@/lib/analiz/kelime";
+import { isletmeAnaliziYap } from "@/lib/analiz/isletme";
+import { saticiAnaliziYap } from "@/lib/analiz/satici";
+import {
+  bekleyenHizGorevSayisi,
+  hizAnaliziTamamla,
+  hizGorevleriniBaslat,
+} from "@/lib/analiz/sayfa-hizi";
 import { rakipAnaliziYap } from "@/lib/analiz/rakip";
 import { taramaSonucunuIsle } from "@/lib/analiz/teknik";
 import { DataForSeoHatasi } from "@/lib/dataforseo/client";
@@ -26,6 +33,15 @@ const YOKLAMA_ARALIGI_MS = 8_000;
 
 /** İşlemde takılan bir işin yeniden ele alınabileceği süre. */
 const KILIT_SURESI_MS = 120_000;
+
+/**
+ * Sıra ölçümlerinin tamamlanması için tanınan azami süre.
+ *
+ * Ölçtüğümüz gerçek tamamlanma süresi 3–6 dakika. Bu sınır dolduğunda
+ * analiz tamamlanır; toplanamayan görevler kaybolmaz, sonraki analizde
+ * okunur.
+ */
+const SIRA_BEKLEME_SINIRI_MS = 420_000;
 
 export type IlerletmeSonucu = {
   durum: AnalizIsi["status"];
@@ -461,7 +477,14 @@ async function adimiCalistir({
       const gorevId = String(params.gorev_id ?? is.provider_task_id ?? "");
       const teknik = await taramaSonucunuIsle({ proje, gorevId });
 
-      const yeniParams = { ...params, teknik };
+      /*
+       * Hız ölçüm görevleri burada AÇILIR, sonda toplanır. Lighthouse
+       * sayfa başına ~25 saniye sürdüğü için araya giren adımlar
+       * (kelimeler, rakipler, SERP) beklemeyi bedavaya getirir.
+       */
+      const hizGorevi = await hizGorevleriniBaslat(proje);
+
+      const yeniParams = { ...params, teknik, hiz_gorevi: hizGorevi };
       const sonrakiAdim = tur === "onpage" ? 99 : 3;
 
       if (tur === "onpage") {
@@ -527,15 +550,67 @@ async function adimiCalistir({
       return {
         adimlar: adimlariGuncelle(adimlar, 4, "tamamlandi"),
         params: { ...params, serp },
-        ilerleme: 90,
+        ilerleme: 86,
         sonrakiAdim: 6,
         bitti: false,
         beklemede: false,
       };
     }
 
-    /* --- 6: Fırsatlar, skorlar ve aksiyonlar --- */
+    /* --- 6: Sıra ölçümlerini topla --- */
     case 6: {
+      /*
+       * Sıra doğrulaması kuyruklu SERP göreviyle yapılır ve tamamlanması
+       * 3–6 dakika sürer. Kelime adımı görevleri açıp kısa bir süre
+       * bekler; burada, aradaki adımlar çalıştıktan sonra kalanlar
+       * toplanır. Yeni görev açılmaz, ek ücret doğmaz.
+       */
+      const { toplanan, bekleyen } = await bekleyenSiralariIsle(proje);
+
+      // Hız ölçümleri de aynı adımda toplanır; ikisi de kuyruklu.
+      const hiz = await hizAnaliziTamamla(proje);
+      const bekleyenHiz = await bekleyenHizGorevSayisi(proje.id);
+
+      /*
+       * Sonuç gelmediyse iş beklemeye alınır. Sınır deneme sayısı değil
+       * SÜREdir: yoklama 8 saniyede bir yapılıyor, görevler ise dakikalar
+       * sürüyor; sayıya bağlamak yarım dakikada pes etmek olurdu.
+       *
+       * Süre dolarsa analiz yine de tamamlanır. Toplanamayan görevler
+       * tabloda durur ve bir sonraki analizde okunur; ödenen hiçbir şey
+       * kaybolmaz.
+       */
+      const bekleyisBasi = Number(params.sira_bekleyis_basi ?? Date.now());
+      const sureDoldu = Date.now() - bekleyisBasi > SIRA_BEKLEME_SINIRI_MS;
+
+      if ((bekleyen > 0 || bekleyenHiz > 0) && !sureDoldu) {
+        return {
+          adimlar,
+          params: { ...params, sira_bekleyis_basi: bekleyisBasi },
+          ilerleme: 90,
+          sonrakiAdim: 6,
+          bitti: false,
+          beklemede: true,
+        };
+      }
+
+      return {
+        adimlar: adimlariGuncelle(adimlar, 5, "tamamlandi"),
+        params: {
+          ...params,
+          sira_toplanan: toplanan,
+          sira_bekleyen: bekleyen,
+          hiz,
+        },
+        ilerleme: 93,
+        sonrakiAdim: 7,
+        bitti: false,
+        beklemede: false,
+      };
+    }
+
+    /* --- 7: Fırsatlar, skorlar ve aksiyonlar --- */
+    case 7: {
       await skorlariGuncelle(proje, params);
       // Sıralama verisi tazelendi; bağlantı önerileri artık hangi sayfanın
       // vurulacak mesafede olduğunu bilerek üretilebilir.
@@ -543,7 +618,7 @@ async function adimiCalistir({
       const aksiyon = await aksiyonlariUret(proje);
 
       return {
-        adimlar: adimlariGuncelle(adimlar, 5, "tamamlandi"),
+        adimlar: adimlariGuncelle(adimlar, 6, "tamamlandi"),
         params: { ...params, aksiyon, sonuc: { ...params } },
         ilerleme: 100,
         sonrakiAdim: 99,
@@ -604,7 +679,22 @@ async function tekAdimliIs({
       const izinli = await ozellikVarMi(is.user_id, "merchant");
       if (!izinli) throw new Error("Bu özellik mevcut paketinize dahil değil.");
       const merchant = await merchantAnaliziYap({ proje, tazelik: "yenile" });
-      yeniParams = { ...yeniParams, merchant };
+
+      /*
+       * Satıcı karşılaştırması aynı Alışveriş sorgusunu kullanır ve o
+       * sorgu önbelleklidir; burada çalıştırmak ikinci kez ücret
+       * doğurmaz. Paketinde yoksa modül kendi içinde boş döner.
+       */
+      const satici = await saticiAnaliziYap({ proje, tazelik: "yenile" });
+
+      yeniParams = { ...yeniParams, merchant, satici };
+      break;
+    }
+    case "isletme": {
+      const izinli = await ozellikVarMi(is.user_id, "isletme_yorumlari");
+      if (!izinli) throw new Error("Bu özellik mevcut paketinize dahil değil.");
+      const isletme = await isletmeAnaliziYap({ proje, tazelik: "yenile" });
+      yeniParams = { ...yeniParams, isletme };
       break;
     }
     case "ai": {

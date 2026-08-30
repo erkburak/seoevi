@@ -17,6 +17,7 @@ import { projeBaglami } from "@/lib/projects";
 import { abonelikDurumu, sonrakiPlan } from "@/lib/subscription";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { kisaSayi, sayi, urlYolu } from "@/lib/utils";
+import { SiraHucresi } from "@/components/app/sira-hucresi";
 import type { KelimeOzeti } from "@/types/database";
 
 export const metadata: Metadata = {
@@ -56,6 +57,8 @@ export default async function AnahtarKelimelerSayfasi() {
 
   const hedefPlan = plan ? await sonrakiPlan(plan.id) : null;
 
+  // Ölçülmüş kelime: sırası bilinen VEYA "ilk 30'da yok" diye ölçülmüş olan.
+  const olculen = kelimeler.filter((k) => k.checked_at !== null).length;
   const siralanan = kelimeler.filter((k) => k.position !== null);
   const ilkOn = siralanan.filter((k) => (k.position ?? 99) <= 10).length;
   const ilkUc = siralanan.filter((k) => (k.position ?? 99) <= 3).length;
@@ -64,7 +67,12 @@ export default async function AnahtarKelimelerSayfasi() {
   const kolonlar: TabloKolonu[] = [
     { baslik: "Anahtar kelime", sabit: true, genislik: "26%" },
     { baslik: "Hacim", hizala: "sag", ipucu: "Aylık ortalama arama sayısı." },
-    { baslik: "Sıra", hizala: "sag", ipucu: "Google'daki güncel sıralamanız." },
+    {
+      baslik: "Sıra",
+      hizala: "sag",
+      ipucu:
+        "Google'daki organik sıranız. Her analizde paketinizin izin verdiği sayıda kelime için canlı ölçülür; ölçülmeyen kelimede sıra iddia edilmez.",
+    },
     { baslik: "Değişim", hizala: "sag", ipucu: "Bir önceki ölçüme göre sıra değişimi." },
     { baslik: "Zorluk", hizala: "sag", ipucu: "0-100 arası; yüksek değer daha zor sıralanma anlamına gelir." },
     { baslik: "Amaç", ipucu: "Kullanıcının bu aramadaki niyeti." },
@@ -98,9 +106,7 @@ export default async function AnahtarKelimelerSayfasi() {
       <span key="hacim" className="tabular">
         {sayi(k.search_volume)}
       </span>,
-      <span key="sira" className="tabular font-medium">
-        {k.position ?? <span className="text-ink-300">—</span>}
-      </span>,
+      <SiraHucresi key="sira" sira={k.position} olculduAt={k.checked_at} />,
       <PozisyonDegisimi key="degisim" simdiki={k.position} onceki={k.previous_position} />,
       <span key="zorluk" className="tabular">
         {k.difficulty ?? <span className="text-ink-300">—</span>}
@@ -169,13 +175,21 @@ export default async function AnahtarKelimelerSayfasi() {
       ) : (
         <>
           <div className="mb-6 grid grid-cols-2 gap-6 border-b border-line pb-6 sm:grid-cols-4">
-            <OzetDegeri etiket="Takip edilen kelime" deger={sayi(kelimeler.length)} />
+            <OzetDegeri
+              etiket="Sırası ölçülen"
+              deger={`${sayi(olculen)} / ${sayi(kelimeler.length)}`}
+              ipucu="Takip edilen kelimelerden kaçının sırası son analizde canlı olarak ölçüldüğü. Ölçülmeyen kelimeler için sıra iddia edilmez."
+            />
             <OzetDegeri
               etiket="İlk 10'da"
               deger={sayi(ilkOn)}
-              ipucu="Google'ın ilk sayfasında sıralanan kelime sayınız."
+              ipucu="Ölçülen kelimelerden kaçının Google'ın ilk sayfasında sıralandığı."
             />
-            <OzetDegeri etiket="İlk 3'te" deger={sayi(ilkUc)} />
+            <OzetDegeri
+              etiket="İlk 3'te"
+              deger={sayi(ilkUc)}
+              ipucu="Ölçülen kelimelerden kaçının ilk üç sonuçta sıralandığı."
+            />
             <OzetDegeri
               etiket="Toplam arama hacmi"
               deger={kisaSayi(toplamHacim)}

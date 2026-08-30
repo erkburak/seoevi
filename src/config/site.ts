@@ -6,12 +6,31 @@
 export const WHATSAPP_NUMBER = "905382020127";
 export const WHATSAPP_DISPLAY = "+90 538 202 01 27";
 
+/**
+ * Site adresini güvenli hâle getirir.
+ *
+ * Bu adres kanonik etiketlerde, site haritasında, OG etiketlerinde ve
+ * OAuth yönlendirmelerinde kullanılıyor. Ortam değişkenine `http://`
+ * yazılması sessizce üç şeyi bozuyordu: Google https bir sitede http
+ * kanonik görüyor, OAuth sağlayıcıları http yönlendirmeyi reddediyor
+ * (`redirect_uri_mismatch`) ve paylaşım önizlemeleri karışıyor.
+ *
+ * Yerel geliştirme dışında şema https'e sabitlenir; sondaki eğik çizgi
+ * atılır ki adres birleştirmede çift çizgi oluşmasın.
+ */
+export function siteAdresi(ham: string | undefined): string {
+  const taban = (ham ?? "https://seoevi.com.tr").trim().replace(/\/+$/, "");
+  if (/^https:\/\//.test(taban)) return taban;
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(taban)) return taban;
+  return taban.replace(/^http:\/\//, "https://");
+}
+
 export const SITE = {
   name: "SEO Evi",
   tagline: "E-ticaret SEO'nun yeni nesli",
   description:
     "E-ticaret SEO platformu: teknik SEO taraması, anahtar kelime takibi, rakip analizi, ürün ve kategori sayfası skorları tek ekranda. Türkçe, e-ticaret için kurgulandı.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://seoevi.com.tr",
+  url: siteAdresi(process.env.NEXT_PUBLIC_SITE_URL),
   locale: "tr_TR",
   email: "destek@seoevi.com.tr",
 } as const;

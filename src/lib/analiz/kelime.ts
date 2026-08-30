@@ -1,9 +1,14 @@
 import "server-only";
 
 import type { Tazelik } from "@/lib/dataforseo/cache";
-import { alanAdiOzeti, siralananKelimeler, type SiralananKelime } from "@/lib/dataforseo/labs";
+import { alanAdiOzeti, siralananKelimeler } from "@/lib/dataforseo/labs";
+import {
+  bekleyenGorevSayisi,
+  bekleyenSiralariTopla,
+  siralariDogrula,
+} from "@/lib/dataforseo/sira-dogrulama";
 import { firsatSkoru } from "@/lib/scoring";
-import { takipKelimeLimiti } from "@/lib/subscription";
+import { dogrulanacakKelimeLimiti, takipKelimeLimiti } from "@/lib/subscription";
 import { yoneticiIstemcisi } from "@/lib/supabase/admin";
 import { arasinda } from "@/lib/utils";
 import type { FirsatTuru, Proje } from "@/types/database";
@@ -22,12 +27,16 @@ export type KelimeAnaliziSonucu = {
   enIyiFirsatlar: { keyword: string; skor: number; pozisyon: number | null }[];
 };
 
-/** Sıralama dağılımından anahtar kelime performans skoru üretir. */
-export function kelimePerformansSkoru(kelimeler: SiralananKelime[]): number {
-  if (!kelimeler.length) return 0;
+/**
+ * Sıralama dağılımından anahtar kelime performans skoru üretir.
+ *
+ * Yalnızca sırası CANLI doğrulanmış kelimeler girdi olur; doğrulanmamış
+ * kelimenin sırası bilinmediği için skora katılamaz.
+ */
+export function kelimePerformansSkoru(pozisyonlar: (number | null)[]): number {
+  if (!pozisyonlar.length) return 0;
 
-  const puan = kelimeler.reduce((t, k) => {
-    const p = k.pozisyon;
+  const puan = pozisyonlar.reduce((t: number, p) => {
     if (p === null) return t;
     if (p <= 3) return t + 100;
     if (p <= 10) return t + 72;
@@ -36,7 +45,7 @@ export function kelimePerformansSkoru(kelimeler: SiralananKelime[]): number {
     return t + 6;
   }, 0);
 
-  return Math.round(arasinda(puan / kelimeler.length, 0, 100));
+  return Math.round(arasinda(puan / pozisyonlar.length, 0, 100));
 }
 
 export async function kelimeAnaliziYap({
@@ -65,7 +74,9 @@ export async function kelimeAnaliziYap({
   if (!kelimeler.length) {
     return {
       toplamKelime: ozet.organik_kelime,
-      ilkOn: ozet.ilk_on,
+      // Hiç kelime yoksa ölçüm de yapılmamıştır; Labs özetindeki eski
+      // sayıyı göstermek olmayan bir başarıyı bildirmek olur.
+      ilkOn: 0,
       tahminiTrafik: ozet.tahmini_trafik,
       keywordSkoru: 0,
       firsatSayisi: 0,
@@ -152,21 +163,95 @@ export async function kelimeAnaliziYap({
 
   const kelimeKimlik = new Map((kayitli ?? []).map((k) => [k.keyword, k.id]));
 
+  /* ---------------- Sıra doğrulama ---------------- */
+
+  /*
+   * Sıralar Labs'ten alınamaz.
+   *
+   * `ranked_keywords` canlı arama değil, geçmişe dayalı bir veritabanıdır.
+   * Ölçtüğümüz gerçek örneklerde kayıtlar 44–104 gün eskiydi ve "13.
+   * sıradasınız" denen kelimede site canlı SERP'in ilk 67 organik
+   * sonucunda hiç yoktu. Bu yüzden gösterilen her sıra, kuyruklu SERP
+   * göreviyle o an ölçülmüş olmak zorundadır.
+   *
+   * Doğrulama maliyetli olduğu için pakete bağlıdır. Hak, kullanıcının
+   * kendi eklediği kelimelere önce verilir (bunlar onun açık tercihidir),
+   * kalanı fırsat skoruna göre dağıtılır.
+   */
+  const dogrulamaLimiti = await dogrulanacakKelimeLimiti(proje.user_id);
+
+  const skorHaritasi = new Map(degerSirasi.map((d) => [d.keyword, d.skor]));
+
+  const dogrulanacaklar = kelimeler
+    .filter((k) => korunanlar.has(k.keyword) || takipEdilecek.has(k.keyword))
+    .sort((a, b) => {
+      const aElle = korunanlar.has(a.keyword) ? 1 : 0;
+      const bElle = korunanlar.has(b.keyword) ? 1 : 0;
+      if (aElle !== bElle) return bElle - aElle;
+      return (skorHaritasi.get(b.keyword) ?? 0) - (skorHaritasi.get(a.keyword) ?? 0);
+    })
+    .slice(0, dogrulamaLimiti)
+    .map((k) => k.keyword);
+
+  const dogrulanan = dogrulanacaklar.length
+    ? await siralariDogrula({
+        projeId: proje.id,
+        kelimeler: dogrulanacaklar,
+        locationCode,
+        languageCode: proje.language_code,
+        bizimAlanAdi: proje.domain,
+      })
+    : new Map<string, { keyword: string; pozisyon: number | null; url: string | null; olculdu_at: string }>();
+
+  /** Doğrulanmış sıra; kelime ölçülmediyse `undefined`. */
+  const olculenSira = (kelime: string) => dogrulanan.get(kelime);
+
   /* ---------------- Sıralamalar ---------------- */
 
-  const siralamalar = kelimeler
-    .filter((k) => kelimeKimlik.has(k.keyword))
-    .map((k) => ({
+  /*
+   * Önceki sıra kendi ölçüm geçmişimizden alınır.
+   *
+   * Sağlayıcı önceki sırayı yalnızca mutlak ölçekte veriyor; onu organik
+   * sırayla karşılaştırmak uydurma bir değişim üretir ("28. sıradan 14.
+   * sıraya" gibi). Kendi kayıtlarımız her zaman aynı ölçektedir.
+   */
+  const { data: sonOlcumler } = await supabase
+    .from("keyword_rankings")
+    .select("keyword_id, position, checked_at")
+    .eq("project_id", proje.id)
+    .eq("is_competitor", false)
+    .order("checked_at", { ascending: false })
+    .limit(2000);
+
+  const oncekiSira = new Map<string, number>();
+  for (const o of sonOlcumler ?? []) {
+    // Sıralı geldiği için ilk görülen kayıt en yenisidir.
+    if (o.position !== null && !oncekiSira.has(o.keyword_id)) {
+      oncekiSira.set(o.keyword_id, o.position);
+    }
+  }
+
+  const labsKaydi = new Map(kelimeler.map((k) => [k.keyword, k]));
+
+  /*
+   * Yalnızca ölçülen kelimeler için sıralama kaydı açılır. Ölçülmemiş bir
+   * kelimenin sırası bilinmiyor demektir; boş kayıt açmak "sıra yok" ile
+   * "bakmadık" arasındaki farkı yok eder.
+   */
+  const siralamalar = [...dogrulanan.values()]
+    .filter((d) => kelimeKimlik.has(d.keyword))
+    .map((d) => ({
       project_id: proje.id,
-      keyword_id: kelimeKimlik.get(k.keyword)!,
+      keyword_id: kelimeKimlik.get(d.keyword)!,
       domain: proje.domain,
       is_competitor: false,
-      position: k.pozisyon,
-      previous_position: k.onceki_pozisyon,
-      url: k.url,
+      position: d.pozisyon,
+      previous_position: oncekiSira.get(kelimeKimlik.get(d.keyword)!) ?? null,
+      url: d.url,
       device: "desktop",
-      etv: k.etv,
-      checked_at: new Date().toISOString(),
+      // Tahmini trafik sıradan türetilir; ilk 30'da değilsek sıfırdır.
+      etv: d.pozisyon === null ? 0 : (labsKaydi.get(d.keyword)?.etv ?? null),
+      checked_at: d.olculdu_at,
     }));
 
   for (let i = 0; i < siralamalar.length; i += 500) {
@@ -181,11 +266,20 @@ export async function kelimeAnaliziYap({
   const firsatlar = kelimeler
     .filter((k) => kelimeKimlik.has(k.keyword) && (k.arama_hacmi ?? 0) > 0)
     .map((k) => {
+      /*
+       * Mevcut sıra yalnızca doğrulanmış kelimelerde bilinir. Labs'in eski
+       * sırasını buraya vermek, "11-20 arasındasınız, biraz itin" gibi
+       * doğrulanmamış bir iddia üretirdi; ölçmediğimiz kelimede sıra
+       * bilinmiyor kabul edilir ve skor hacim/zorluk üzerinden çıkar.
+       */
+      const olculen = olculenSira(k.keyword);
+      const mevcutPozisyon = olculen ? olculen.pozisyon : null;
+
       const sonuc = firsatSkoru({
         aramaHacmi: k.arama_hacmi,
         zorluk: k.zorluk,
         rekabet: k.rekabet,
-        mevcutPozisyon: k.pozisyon,
+        mevcutPozisyon,
         amac: k.amac,
         serpOzellikSayisi: 0,
         alisverisVar: false,
@@ -193,15 +287,18 @@ export async function kelimeAnaliziYap({
         alanAdiGucu: null,
       });
 
+      // "Hızlı kazanım" bir sıra iddiasıdır; ancak ölçülmüşse verilebilir.
       const tur: FirsatTuru =
-        k.pozisyon !== null && k.pozisyon > 10 && k.pozisyon <= 20 ? "hizli_kazanim" : "genel";
+        mevcutPozisyon !== null && mevcutPozisyon > 10 && mevcutPozisyon <= 20
+          ? "hizli_kazanim"
+          : "genel";
 
       return {
         project_id: proje.id,
         keyword_id: kelimeKimlik.get(k.keyword)!,
         score: sonuc.skor,
         potential_traffic: sonuc.tahminiTrafik,
-        current_position: k.pozisyon,
+        current_position: mevcutPozisyon,
         target_position: sonuc.hedefPozisyon,
         reason: sonuc.gerekce,
         signals: sonuc.sinyaller as never,
@@ -229,11 +326,18 @@ export async function kelimeAnaliziYap({
     }
   }
 
+  const olculenPozisyonlar = [...dogrulanan.values()].map((d) => d.pozisyon);
+
   return {
     toplamKelime: ozet.organik_kelime || kelimeler.length,
-    ilkOn: ozet.ilk_on,
+    /*
+     * "İlk 10'da N kelimeniz var" bir sıra iddiasıdır; Labs özetinden
+     * alınırsa aylar öncesine ait olur. Yalnızca bu analizde ölçülmüş
+     * kelimeler sayılır.
+     */
+    ilkOn: olculenPozisyonlar.filter((p) => p !== null && p <= 10).length,
     tahminiTrafik: ozet.tahmini_trafik,
-    keywordSkoru: kelimePerformansSkoru(kelimeler),
+    keywordSkoru: kelimePerformansSkoru(olculenPozisyonlar),
     firsatSayisi: firsatlar.filter((f) => f._skor >= 60).length,
     enIyiFirsatlar: firsatlar.slice(0, 5).map((f) => ({
       keyword: f.keyword,
@@ -241,4 +345,85 @@ export async function kelimeAnaliziYap({
       pozisyon: f.current_position,
     })),
   };
+}
+
+
+/**
+ * Sonradan tamamlanan sıra ölçümlerini toplar ve kaydeder.
+ *
+ * Kuyruklu SERP görevleri 3–6 dakikada tamamlanıyor; analiz işinin tamamı
+ * ise 5 dakikayla sınırlı. Kelime adımında beklenemeyen sonuçlar bu
+ * işlevle toplanır. Yeni görev açmaz, ücret doğurmaz: yalnızca ödenmiş
+ * sonuçları okur.
+ */
+export async function bekleyenSiralariIsle(
+  proje: Proje,
+): Promise<{ toplanan: number; bekleyen: number }> {
+  const supabase = yoneticiIstemcisi();
+
+  const toplanan = await bekleyenSiralariTopla({
+    projeId: proje.id,
+    bizimAlanAdi: proje.domain,
+  });
+
+  if (!toplanan.size) {
+    return { toplanan: 0, bekleyen: await bekleyenGorevSayisi(proje.id) };
+  }
+
+  const { data: kayitli } = await supabase
+    .from("keywords")
+    .select("id, keyword")
+    .eq("project_id", proje.id);
+
+  const kelimeKimlik = new Map((kayitli ?? []).map((k) => [k.keyword, k.id]));
+
+  // Önceki sıra kendi ölçüm geçmişimizden; sağlayıcının mutlak ölçekli
+  // değeri organik sırayla karşılaştırılamaz.
+  const { data: sonOlcumler } = await supabase
+    .from("keyword_rankings")
+    .select("keyword_id, position, checked_at")
+    .eq("project_id", proje.id)
+    .eq("is_competitor", false)
+    .order("checked_at", { ascending: false })
+    .limit(2000);
+
+  const oncekiSira = new Map<string, number>();
+  for (const o of sonOlcumler ?? []) {
+    if (o.position !== null && !oncekiSira.has(o.keyword_id)) {
+      oncekiSira.set(o.keyword_id, o.position);
+    }
+  }
+
+  const satirlar = [...toplanan.values()]
+    .filter((d) => kelimeKimlik.has(d.keyword))
+    .map((d) => ({
+      project_id: proje.id,
+      keyword_id: kelimeKimlik.get(d.keyword)!,
+      domain: proje.domain,
+      is_competitor: false,
+      position: d.pozisyon,
+      previous_position: oncekiSira.get(kelimeKimlik.get(d.keyword)!) ?? null,
+      url: d.url,
+      device: "desktop",
+      etv: d.pozisyon === null ? 0 : null,
+      checked_at: d.olculdu_at,
+    }));
+
+  for (let i = 0; i < satirlar.length; i += 500) {
+    await supabase.from("keyword_rankings").insert(satirlar.slice(i, i + 500) as never);
+  }
+
+  // Fırsat kayıtlarındaki sıra da tazelenir; aksi hâlde tablo "ölçülmedi"
+  // demeye devam eder.
+  for (const d of toplanan.values()) {
+    const kimlik = kelimeKimlik.get(d.keyword);
+    if (!kimlik) continue;
+    await supabase
+      .from("keyword_opportunities")
+      .update({ current_position: d.pozisyon })
+      .eq("project_id", proje.id)
+      .eq("keyword_id", kimlik);
+  }
+
+  return { toplanan: satirlar.length, bekleyen: await bekleyenGorevSayisi(proje.id) };
 }

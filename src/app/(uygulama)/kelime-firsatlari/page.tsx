@@ -10,6 +10,7 @@ import { Buton } from "@/components/ui/button";
 import { VeriTablosu, type TabloKolonu, type TabloSatiri } from "@/components/ui/data-table";
 import { BosDurum } from "@/components/ui/feedback";
 import { OzetDegeri } from "@/components/ui/metric";
+import { SiraHucresi } from "@/components/app/sira-hucresi";
 import { FirsatSkoru } from "@/components/ui/score";
 import { FiltreSeridi, Sekmeler } from "@/components/ui/tabs";
 import { projeBaglami } from "@/lib/projects";
@@ -78,7 +79,19 @@ export default async function KelimeFirsatlariSayfasi({
 
   if (tur !== "hepsi") sorgu = sorgu.eq("opportunity_type", tur);
 
-  const [{ data }, { plan }] = await Promise.all([sorgu, abonelikDurumu(kullanici.id)]);
+  /*
+   * Sıranın ne zaman ölçüldüğü ayrı okunur: "ilk 30'da yok" ile "hiç
+   * ölçülmedi" farklı şeylerdir ve tabloda farklı gösterilir.
+   */
+  const [{ data }, { plan }, { data: olcumler }] = await Promise.all([
+    sorgu,
+    abonelikDurumu(kullanici.id),
+    supabase.from("kelime_ozet").select("id, checked_at").eq("project_id", proje.id).limit(2000),
+  ]);
+
+  const olcumZamani = new Map(
+    ((olcumler ?? []) as { id: string; checked_at: string | null }[]).map((o) => [o.id, o.checked_at]),
+  );
   const hedefPlan = plan ? await sonrakiPlan(plan.id) : null;
 
   const firsatlar = ((data ?? []) as unknown as FirsatSatiri[])
@@ -95,6 +108,7 @@ export default async function KelimeFirsatlariSayfasi({
         skor: f.score,
         trafik: f.potential_traffic,
         pozisyon: f.current_position,
+        olculduAt: olcumZamani.get(k.id) ?? null,
         hedef: f.target_position,
         gerekce: f.reason,
         tur: f.opportunity_type,
@@ -122,7 +136,12 @@ export default async function KelimeFirsatlariSayfasi({
     { baslik: "Anahtar kelime", sabit: true, genislik: "24%" },
     { baslik: "Fırsat", hizala: "sag", ipucu: "Arama hacmi, rekabet, mevcut sıralamanız ve ticari potansiyel gibi sinyallerden hesaplanır." },
     { baslik: "Hacim", hizala: "sag" },
-    { baslik: "Sıra", hizala: "sag" },
+    {
+      baslik: "Sıra",
+      hizala: "sag",
+      ipucu:
+        "Organik sıranız. Her analizde paketinizin izin verdiği sayıda kelime canlı ölçülür; ölçülmeyen kelimede sıra iddia edilmez.",
+    },
     { baslik: "Hedef", hizala: "sag", ipucu: "Ulaşılabilir gördüğümüz sıralama." },
     { baslik: "Tahmini kazanç", hizala: "sag", ipucu: "Hedef sıraya çıkıldığında beklenen aylık ek ziyaret." },
     { baslik: "Amaç" },
@@ -146,9 +165,7 @@ export default async function KelimeFirsatlariSayfasi({
       <span key="h" className="tabular">
         {sayi(f.hacim)}
       </span>,
-      <span key="p" className="tabular">
-        {f.pozisyon ?? <span className="text-ink-300">—</span>}
-      </span>,
+      <SiraHucresi key="p" sira={f.pozisyon} olculduAt={f.olculduAt} />,
       <span key="t" className="tabular text-ink-500">
         {f.hedef ?? "—"}
       </span>,

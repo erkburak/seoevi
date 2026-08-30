@@ -23,6 +23,8 @@ const SUTUNLAR = [
       { etiket: "Teknik SEO Analizi", href: "/teknik-seo-analizi" },
       { etiket: "Anahtar Kelime Araştırma Aracı", href: "/anahtar-kelime-arastirma-araci" },
       { etiket: "Google Sıra Bulucu", href: "/google-sira-bulucu" },
+      { etiket: "Site Hızı Testi", href: "/site-hizi-testi" },
+      { etiket: "Ürün Sayfası SEO Testi", href: "/urun-sayfasi-seo-testi" },
       { etiket: "Ücretsiz SEO Analizi", href: "/ucretsiz-seo-analizi" },
       { etiket: "Başlık Etiketi Oluşturucu", href: "/meta-title-olusturucu" },
       { etiket: "Açıklama Oluşturucu", href: "/meta-description-olusturucu" },

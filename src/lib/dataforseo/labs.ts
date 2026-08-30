@@ -25,6 +25,14 @@ export type SiralananKelime = {
   etv: number | null;
   yeni_mi: boolean;
   kayip_mi: boolean;
+  /**
+   * Sağlayıcının bu sıralamayı EN SON ne zaman gördüğü.
+   *
+   * `ranked_keywords` canlı bir arama değil, geçmişe dayalı bir
+   * veritabanıdır; kayıtlar aylar öncesine ait olabilir. Sıranın ne
+   * kadar eski olduğunu bilmeden "şu an şuradasınız" demek yanlış olur.
+   */
+  olculdu_at: string | null;
   /** Son 12 ayın arama hacmi; mevsimsellik bundan çıkarılır. */
   trend: AylikHacim[];
 };
@@ -65,8 +73,14 @@ type HamSiraliOge = {
     search_intent_info?: { main_intent?: string | null };
   };
   ranked_serp_element?: {
+    /** Sağlayıcının bu sıralamayı son gördüğü an. */
+    last_updated_time?: string | null;
     serp_item?: {
+      /** SERP öğesinin türü: organic, local_pack, paid… */
+      type?: string | null;
+      /** Organik blok içindeki sıra. */
       rank_group?: number | null;
+      /** Tüm SERP öğeleri arasındaki sıra — görsel, video, PAA dahil. */
       rank_absolute?: number | null;
       url?: string | null;
       etv?: number | null;
@@ -85,10 +99,34 @@ function siraliOgeCevir(oge: HamSiraliOge): SiralananKelime | null {
   const serp = oge.ranked_serp_element?.serp_item;
   if (!kd?.keyword) return null;
 
+  /*
+   * Yalnızca organik sonuçlar sıralama sayılır.
+   *
+   * Sağlayıcı yerel paket ve reklam gibi öğeleri de döndürebilir; bunları
+   * "organik sıranız" diye göstermek yanlış olur.
+   */
+  if (serp?.type && serp.type !== "organic") return null;
+
   return {
     keyword: kd.keyword,
-    pozisyon: serp?.rank_absolute ?? serp?.rank_group ?? null,
-    onceki_pozisyon: serp?.rank_changes?.previous_rank_absolute ?? null,
+    /*
+     * ORGANİK sıra `rank_group`'tur.
+     *
+     * `rank_absolute` tüm SERP öğeleri arasındaki sıradır: görsel paketi,
+     * videolar, "insanlar bunu da soruyor" kutusu da sayılır. Kullanıcı
+     * "10. sıradasınız" ifadesini organik sonuçlarda 10. olmak diye okur;
+     * oysa mutlak sırada 10 olmak, araya giren görsel bloğu yüzünden
+     * organikte 9. olmak anlamına gelebiliyordu. İkisini aynı kefeye
+     * koymak sıralamaları sistematik olarak olduğundan kötü gösteriyordu.
+     */
+    pozisyon: serp?.rank_group ?? null,
+    /*
+     * Sağlayıcı önceki sırayı yalnızca MUTLAK ölçekte veriyor
+     * (`previous_rank_absolute`); organik ölçekte karşılığı yok. İki
+     * farklı ölçeği çıkarmak anlamsız bir değişim üretir, bu yüzden
+     * önceki sıra kendi ölçüm geçmişimizden hesaplanır.
+     */
+    onceki_pozisyon: null,
     url: serp?.url ?? null,
     arama_hacmi: kd.keyword_info?.search_volume ?? null,
     cpc: kd.keyword_info?.cpc ?? null,
@@ -96,6 +134,7 @@ function siraliOgeCevir(oge: HamSiraliOge): SiralananKelime | null {
     zorluk: kd.keyword_properties?.keyword_difficulty ?? null,
     amac: amacCevir(kd.search_intent_info?.main_intent),
     etv: serp?.etv ?? null,
+    olculdu_at: oge.ranked_serp_element?.last_updated_time ?? null,
     yeni_mi: serp?.rank_changes?.is_new ?? false,
     kayip_mi: false,
     trend: (kd.keyword_info?.monthly_searches ?? [])
@@ -332,8 +371,16 @@ export async function ortakKelimeler({
               keyword_properties?: { keyword_difficulty?: number | null };
               search_intent_info?: { main_intent?: string | null };
             };
-            first_domain_serp_element?: { rank_absolute?: number | null; url?: string | null };
-            second_domain_serp_element?: { rank_absolute?: number | null; url?: string | null };
+            first_domain_serp_element?: {
+              rank_group?: number | null;
+              rank_absolute?: number | null;
+              url?: string | null;
+            };
+            second_domain_serp_element?: {
+              rank_group?: number | null;
+              rank_absolute?: number | null;
+              url?: string | null;
+            };
           }[];
         }>("/dataforseo_labs/google/domain_intersection/live", gövde),
       ),
@@ -346,8 +393,10 @@ export async function ortakKelimeler({
       arama_hacmi: i.keyword_data?.keyword_info?.search_volume ?? null,
       zorluk: i.keyword_data?.keyword_properties?.keyword_difficulty ?? null,
       amac: amacCevir(i.keyword_data?.search_intent_info?.main_intent),
-      bizim_pozisyon: i.first_domain_serp_element?.rank_absolute ?? null,
-      rakip_pozisyon: i.second_domain_serp_element?.rank_absolute ?? null,
+      // Organik sıra `rank_group`; `rank_absolute` görsel ve reklam gibi
+      // öğeleri de sayar ve iki alan adını farklı ölçekte gösterebilir.
+      bizim_pozisyon: i.first_domain_serp_element?.rank_group ?? null,
+      rakip_pozisyon: i.second_domain_serp_element?.rank_group ?? null,
       bizim_url: i.first_domain_serp_element?.url ?? null,
       rakip_url: i.second_domain_serp_element?.url ?? null,
     }));
